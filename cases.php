@@ -251,7 +251,7 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   gap:10px;
   margin-top:10px;
 }
-.btn {
+.btn { 
   display:inline-block;
   background:#0073e6;
   color:#fff !important;
@@ -261,6 +261,35 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   border:1px solid #005bb5;
 }
 .btn:hover { background:#005bb5; }
+#attachmentModal   { z-index: 3050; }
+.attachment-modal .modal-content {
+  max-width: 900px;
+  width: 90%;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.attachment-modal .modal-content h3 { margin-bottom: 12px; }
+.attachment-body {
+  flex: 1;
+  border: 1px solid #dde4f2;
+  border-radius: 8px;
+  background: #f9fbff;
+  overflow: hidden;
+}
+.attachment-body iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+.attachment-actions {
+  margin-top: 15px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 
 /* --- View Details modal styling to match Search --- */
 .details-wrap {
@@ -482,6 +511,21 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   </div>
 </div>
 
+<!-- Attachment Modal -->
+<div id="attachmentModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close attachment">&times;</span>
+    <h3 id="attachmentTitle">Attachment Preview</h3>
+    <div class="attachment-body">
+      <iframe id="attachmentFrame" title="Attachment preview"></iframe>
+    </div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="downloadAttachmentLink" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closeAttachmentBtn">Close</a>
+    </div>
+  </div>
+</div>
+
 <script>
 const pieCtx = document.getElementById('statusPie');
 new Chart(pieCtx, {
@@ -513,6 +557,26 @@ const notesModal = document.getElementById("notesModal");
 const modalNotes = document.getElementById("modalNotes");
 const closeNotesIcon = notesModal.querySelector(".close");
 const closeNotesBtn  = document.getElementById("closeNotesBtn");
+const attachmentModal = document.getElementById("attachmentModal");
+const attachmentFrame = document.getElementById("attachmentFrame");
+const attachmentTitle = document.getElementById("attachmentTitle");
+const downloadAttachmentLink = document.getElementById("downloadAttachmentLink");
+const closeAttachmentBtn = document.getElementById("closeAttachmentBtn");
+const closeAttachmentIcon = attachmentModal.querySelector(".close");
+
+function openAttachmentModal(url, filename) {
+  if (!url) return;
+  const safeName = filename && filename.trim() ? filename.trim() : 'Attachment';
+  attachmentTitle.textContent = safeName;
+  attachmentFrame.src = url;
+  downloadAttachmentLink.href = url;
+  attachmentModal.style.display = "block";
+}
+
+function closeAttachmentModal() {
+  attachmentModal.style.display = "none";
+  attachmentFrame.src = "";
+}
 
 // Bind any main-table notes-button if present (kept for compatibility)
 document.querySelectorAll(".view-notes-btn").forEach(btn => {
@@ -523,6 +587,24 @@ document.querySelectorAll(".view-notes-btn").forEach(btn => {
 });
 closeNotesIcon.onclick = () => { notesModal.style.display = "none"; };
 closeNotesBtn.onclick  = () => { notesModal.style.display = "none"; };
+closeAttachmentIcon.onclick = () => { closeAttachmentModal(); };
+closeAttachmentBtn.onclick  = () => { closeAttachmentModal(); };
+
+if (modalNotes) {
+  modalNotes.addEventListener('click', (event) => {
+    const link = event.target.closest('a');
+    if (!link) return;
+    const hrefAttr = link.getAttribute('href') || '';
+    const absoluteHref = link.href || hrefAttr;
+    if (!hrefAttr && !absoluteHref) return;
+    const isAttachmentLink = link.classList.contains('attachment-link') || (absoluteHref && absoluteHref.includes('/uploads/'));
+    if (!isAttachmentLink) return;
+    event.preventDefault();
+    const filename = link.getAttribute('data-filename') || link.textContent || '';
+    const targetUrl = hrefAttr || absoluteHref;
+    openAttachmentModal(targetUrl, filename);
+  });
+}
 
 // Details Modal
 const detailsModal = document.getElementById("detailsModal");
@@ -589,6 +671,7 @@ closeDetailsBtn.onclick  = () => { detailsModal.style.display = "none"; };
 window.onclick = e => {
   if(e.target == notesModal) notesModal.style.display = "none";
   if(e.target == detailsModal) detailsModal.style.display = "none";
+  if(e.target == attachmentModal) closeAttachmentModal();
 };
 
 // Close modals with ESC key
@@ -596,6 +679,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     notesModal.style.display = "none";
     detailsModal.style.display = "none";
+    closeAttachmentModal();
   }
 });
 </script>
