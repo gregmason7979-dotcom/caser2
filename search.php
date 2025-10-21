@@ -237,7 +237,7 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   white-space: pre-wrap;
 }
 .notes-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:10px; }
-#attachmentModal   { z-index: 3050; }
+#previewModal   { z-index: 3050; }
 .attachment-modal .modal-content {
   max-width: 900px;
   width: 90%;
@@ -250,14 +250,23 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   flex: 1;
   border: 1px solid #dde4f2;
   border-radius: 8px;
-  background: #f9fbff;
+  background: #0a0a0a;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.attachment-body iframe {
+.attachment-body iframe,
+.attachment-body audio {
   width: 100%;
   height: 100%;
   border: none;
   background: #fff;
+}
+.attachment-body audio {
+  height: auto;
+  background: #111;
+  padding: 12px;
 }
 .attachment-actions {
   margin-top: 15px;
@@ -306,6 +315,7 @@ function openMapPopup(addr){
     type: 'map'
   });
 }
+window.openMapPopup = openMapPopup;
 </script>
 </head>
 <body>
@@ -460,6 +470,19 @@ function openMapPopup(addr){
   </div>
 </div>
 
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
 <!-- Attachment Modal -->
 <div id="attachmentModal" class="modal attachment-modal">
   <div class="modal-content">
@@ -512,31 +535,89 @@ const notesModal = document.getElementById("notesModal");
 const modalNotes = document.getElementById("modalNotes");
 const closeNotesIcon = notesModal.querySelector(".close");
 const closeNotesBtn  = document.getElementById("closeNotesBtn");
-const attachmentModal = document.getElementById("attachmentModal");
-const attachmentFrame = document.getElementById("attachmentFrame");
-const attachmentTitle = document.getElementById("attachmentTitle");
-const downloadAttachmentLink = document.getElementById("downloadAttachmentLink");
-const closeAttachmentBtn = document.getElementById("closeAttachmentBtn");
-const closeAttachmentIcon = attachmentModal.querySelector(".close");
+const previewModal = document.getElementById("previewModal");
+const previewBody = document.getElementById("previewBody");
+const previewTitle = document.getElementById("previewTitle");
+const openPreviewExternal = document.getElementById("openPreviewExternal");
+const closePreviewBtn = document.getElementById("closePreviewBtn");
+const closePreviewIcon = previewModal.querySelector(".close");
 
-function openAttachmentModal(url, filename) {
+function buildIframe(url, title) {
+  const iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.title = title;
+  iframe.loading = 'lazy';
+  iframe.allow = 'autoplay';
+  return iframe;
+}
+
+function openPreviewModal({ url, title, type = 'attachment', externalUrl = '' }) {
   if (!url) return;
-  const safeName = filename && filename.trim() ? filename.trim() : 'Attachment';
-  attachmentTitle.textContent = safeName;
-  attachmentFrame.src = url;
-  downloadAttachmentLink.href = url;
-  attachmentModal.style.display = "block";
+  const safeTitle = title && title.trim()
+    ? title.trim()
+    : (type === 'audio'
+        ? 'Audio Preview'
+        : type === 'map'
+          ? 'Map Preview'
+          : 'Attachment Preview');
+  previewTitle.textContent = safeTitle;
+  previewBody.innerHTML = '';
+
+  const external = externalUrl && externalUrl.trim() ? externalUrl : url;
+  if (external) {
+    openPreviewExternal.href = external;
+    openPreviewExternal.style.display = 'inline-block';
+  } else {
+    openPreviewExternal.removeAttribute('href');
+    openPreviewExternal.style.display = 'none';
+  }
+
+  if (type === 'audio') {
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.setAttribute('controls', 'controls');
+    audio.preload = 'metadata';
+    audio.style.width = '100%';
+    audio.setAttribute('aria-label', safeTitle);
+
+    const source = document.createElement('source');
+    source.src = url;
+    source.type = 'audio/mpeg';
+    audio.appendChild(source);
+
+    const fallback = document.createElement('p');
+    fallback.style.color = '#fff';
+    fallback.style.padding = '12px';
+    fallback.textContent = 'Your browser could not load this audio preview.';
+    audio.appendChild(fallback);
+
+    previewBody.appendChild(audio);
+    try { audio.load(); } catch (err) { console.warn('Audio preview load failed', err); }
+  } else {
+    const iframe = buildIframe(url, safeTitle);
+    previewBody.appendChild(iframe);
+  }
+
+  previewModal.style.display = "block";
 }
 
-function closeAttachmentModal() {
-  attachmentModal.style.display = "none";
-  attachmentFrame.src = "";
+window.openPreviewModal = openPreviewModal;
+
+function closePreviewModal() {
+  const activeAudio = previewBody.querySelector('audio');
+  if (activeAudio && typeof activeAudio.pause === 'function') {
+    try { activeAudio.pause(); } catch (_) {}
+  }
+  previewModal.style.display = "none";
+  previewBody.innerHTML = '';
 }
+
+window.closePreviewModal = closePreviewModal;
 
 closeNotesIcon.onclick = () => { notesModal.style.display = "none"; };
 closeNotesBtn.onclick  = () => { notesModal.style.display = "none"; };
-closeAttachmentIcon.onclick = () => { closeAttachmentModal(); };
-closeAttachmentBtn.onclick  = () => { closeAttachmentModal(); };
+closePreviewIcon.onclick = () => { closePreviewModal(); };
+closePreviewBtn.onclick  = () => { closePreviewModal(); };
 
 if (modalNotes) {
   modalNotes.addEventListener('click', (event) => {
@@ -550,7 +631,7 @@ if (modalNotes) {
     event.preventDefault();
     const filename = link.getAttribute('data-filename') || link.textContent || '';
     const targetUrl = hrefAttr || absoluteHref;
-    openAttachmentModal(targetUrl, filename);
+    openPreviewModal({ url: targetUrl, title: filename, type: 'attachment' });
   });
 }
 
@@ -628,6 +709,20 @@ document.querySelectorAll(".view-details-btn").forEach(btn => {
       });
     });
 
+    detailsTableBody.querySelectorAll('.audio-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const audioUrl = link.getAttribute('data-audio') || '';
+        openPreviewModal({ url: audioUrl, type: 'audio', title: 'Audio Preview', externalUrl: audioUrl });
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.map-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const addr = link.getAttribute('data-address') || '';
+        openMapPopup(addr);
+      });
+    });
+
     detailsModal.style.display = "block";
   });
 });
@@ -639,7 +734,7 @@ closeDetailsBtn.onclick  = () => { detailsModal.style.display = "none"; };
 window.onclick = e => {
   if(e.target == notesModal) notesModal.style.display = "none";
   if(e.target == detailsModal) detailsModal.style.display = "none";
-  if(e.target == attachmentModal) closeAttachmentModal();
+  if(e.target == previewModal) closePreviewModal();
 };
 
 // ESC key
@@ -647,7 +742,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     notesModal.style.display = "none";
     detailsModal.style.display = "none";
-    closeAttachmentModal();
+    closePreviewModal();
   }
 });
 </script>
