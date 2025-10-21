@@ -237,6 +237,44 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   white-space: pre-wrap;
 }
 .notes-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:10px; }
+#previewModal   { z-index: 3050; }
+.attachment-modal .modal-content {
+  max-width: 900px;
+  width: 90%;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.attachment-modal .modal-content h3 { margin-bottom: 12px; }
+.attachment-body {
+  flex: 1;
+  border: 1px solid #dde4f2;
+  border-radius: 8px;
+  background: #0a0a0a;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.attachment-body iframe,
+.attachment-body audio {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+.attachment-body audio {
+  height: auto;
+  background: #111;
+  padding: 12px;
+}
+.attachment-actions {
+  margin-top: 15px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 
 /* details modal look (striped) */
 .details-wrap {
@@ -265,12 +303,19 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
 </style>
 
 <script>
-// --- Google Maps popup helper ---
+// --- Google Maps preview helper ---
 function openMapPopup(addr){
   if(!addr) return;
-  const url = "https://www.google.com/maps?q=" + encodeURIComponent(addr);
-  window.open(url, "mapPopup", "width=800,height=600,menubar=0,toolbar=0,location=0,status=0");
+  const baseUrl = "https://www.google.com/maps?q=" + encodeURIComponent(addr);
+  const embedUrl = baseUrl + "&output=embed";
+  openPreviewModal({
+    url: embedUrl,
+    externalUrl: baseUrl,
+    title: addr,
+    type: 'map'
+  });
 }
+window.openMapPopup = openMapPopup;
 </script>
 </head>
 <body>
@@ -425,6 +470,19 @@ function openMapPopup(addr){
   </div>
 </div>
 
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
 <script>
 // Mini status pie (results only)
 const miniCtx = document.getElementById('miniStatusPie');
@@ -462,9 +520,105 @@ const notesModal = document.getElementById("notesModal");
 const modalNotes = document.getElementById("modalNotes");
 const closeNotesIcon = notesModal.querySelector(".close");
 const closeNotesBtn  = document.getElementById("closeNotesBtn");
+const previewModal = document.getElementById("previewModal");
+const previewBody = document.getElementById("previewBody");
+const previewTitle = document.getElementById("previewTitle");
+const openPreviewExternal = document.getElementById("openPreviewExternal");
+const closePreviewBtn = document.getElementById("closePreviewBtn");
+const closePreviewIcon = previewModal.querySelector(".close");
+
+function buildIframe(url, title) {
+  const iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.title = title;
+  iframe.loading = 'lazy';
+  iframe.allow = 'autoplay';
+  return iframe;
+}
+
+function openPreviewModal({ url, title, type = 'attachment', externalUrl = '' }) {
+  if (!url) return;
+  const safeTitle = title && title.trim()
+    ? title.trim()
+    : (type === 'audio'
+        ? 'Audio Preview'
+        : type === 'map'
+          ? 'Map Preview'
+          : 'Attachment Preview');
+  previewTitle.textContent = safeTitle;
+  previewBody.innerHTML = '';
+
+  const external = externalUrl && externalUrl.trim() ? externalUrl : url;
+  if (external) {
+    openPreviewExternal.href = external;
+    openPreviewExternal.style.display = 'inline-block';
+  } else {
+    openPreviewExternal.removeAttribute('href');
+    openPreviewExternal.style.display = 'none';
+  }
+
+  if (type === 'audio') {
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.setAttribute('controls', 'controls');
+    audio.preload = 'metadata';
+    audio.style.width = '100%';
+    audio.setAttribute('aria-label', safeTitle);
+
+    const source = document.createElement('source');
+    source.src = url;
+    source.type = 'audio/mpeg';
+    audio.appendChild(source);
+
+    const fallback = document.createElement('p');
+    fallback.style.color = '#fff';
+    fallback.style.padding = '12px';
+    fallback.textContent = 'Your browser could not load this audio preview.';
+    audio.appendChild(fallback);
+
+    previewBody.appendChild(audio);
+    try { audio.load(); } catch (err) { console.warn('Audio preview load failed', err); }
+  } else {
+    const iframe = buildIframe(url, safeTitle);
+    previewBody.appendChild(iframe);
+  }
+
+  previewModal.style.display = "block";
+}
+
+window.openPreviewModal = openPreviewModal;
+
+function closePreviewModal() {
+  const activeAudio = previewBody.querySelector('audio');
+  if (activeAudio && typeof activeAudio.pause === 'function') {
+    try { activeAudio.pause(); } catch (_) {}
+  }
+  previewModal.style.display = "none";
+  previewBody.innerHTML = '';
+}
+
+window.closePreviewModal = closePreviewModal;
 
 closeNotesIcon.onclick = () => { notesModal.style.display = "none"; };
 closeNotesBtn.onclick  = () => { notesModal.style.display = "none"; };
+closePreviewIcon.onclick = () => { closePreviewModal(); };
+closePreviewBtn.onclick  = () => { closePreviewModal(); };
+
+if (modalNotes) {
+  modalNotes.addEventListener('click', (event) => {
+    const link = event.target.closest('a');
+    if (!link) return;
+    const hrefAttr = link.getAttribute('href') || '';
+    const absoluteHref = link.href || hrefAttr;
+    if (!hrefAttr && !absoluteHref) return;
+    const isAttachmentLink = link.classList.contains('attachment-link') || (absoluteHref && absoluteHref.includes('/uploads/'));
+    if (!isAttachmentLink) return;
+    event.preventDefault();
+    const filename = link.getAttribute('data-filename') || link.textContent || '';
+    const targetUrl = hrefAttr || absoluteHref;
+    openPreviewModal({ url: targetUrl, title: filename, type: 'attachment' });
+  });
+}
 
 // Details Modal
 const detailsModal = document.getElementById("detailsModal");
@@ -502,8 +656,9 @@ document.querySelectorAll(".view-details-btn").forEach(btn => {
     addRow("User Type", data.user_type || '');
 
     // Address + Escalation Session ID (consistent with cases.php)
-    addRow("Address", data.address 
-      ? `<a href="javascript:void(0)" onclick="openMapPopup('${(String(data.address)).replace(/'/g,"\\'")}')">${String(data.address)}</a>`
+    const addressText = data.address ? String(data.address) : '';
+    addRow("Address", addressText
+      ? `<a href="javascript:void(0);" class="map-preview-link" data-address="${addressText.replace(/"/g,'&quot;')}">${addressText}</a>`
       : '—'
     );
     addRow("Escalation Session ID", data.escalation_session_id || '—');
@@ -512,7 +667,7 @@ document.querySelectorAll(".view-details-btn").forEach(btn => {
     addRow("Notes", data.notes ? `<a href="javascript:void(0);" class="view-notes-btn" data-notes="${String(data.notes).replace(/"/g,'&quot;')}">View Notes</a>` : 'No Notes');
 
     // Audio
-    if (audio) addRow("Audio", `<a href="${audio}" target="_blank">Play Audio</a>`);
+    if (audio) addRow("Audio", `<a href="javascript:void(0);" class="audio-preview-link" data-audio="${audio}">Play Audio</a>`);
 
     // Informed consent
     addRow("Informed Consent", data.informed_consent ? 'Yes' : 'No');
@@ -522,6 +677,20 @@ document.querySelectorAll(".view-details-btn").forEach(btn => {
       nbtn.addEventListener("click", () => {
         modalNotes.innerHTML = nbtn.getAttribute("data-notes") || '';
         notesModal.style.display = "block";
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.audio-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const audioUrl = link.getAttribute('data-audio') || '';
+        openPreviewModal({ url: audioUrl, type: 'audio', title: 'Audio Preview', externalUrl: audioUrl });
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.map-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const addr = link.getAttribute('data-address') || '';
+        openMapPopup(addr);
       });
     });
 
@@ -536,6 +705,7 @@ closeDetailsBtn.onclick  = () => { detailsModal.style.display = "none"; };
 window.onclick = e => {
   if(e.target == notesModal) notesModal.style.display = "none";
   if(e.target == detailsModal) detailsModal.style.display = "none";
+  if(e.target == previewModal) closePreviewModal();
 };
 
 // ESC key
@@ -543,6 +713,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     notesModal.style.display = "none";
     detailsModal.style.display = "none";
+    closePreviewModal();
   }
 });
 </script>
