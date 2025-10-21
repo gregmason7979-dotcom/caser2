@@ -233,11 +233,17 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
 </style>
 
 <script>
-// --- Google Maps popup helper (same as cases.php) ---
+// --- Google Maps preview helper ---
 function openMapPopup(addr){
   if(!addr) return;
-  const url = "https://www.google.com/maps?q=" + encodeURIComponent(addr);
-  window.open(url, "mapPopup", "width=800,height=600,menubar=0,toolbar=0,location=0,status=0");
+  const baseUrl = "https://www.google.com/maps?q=" + encodeURIComponent(addr);
+  const embedUrl = baseUrl + "&output=embed";
+  openPreviewModal({
+    url: embedUrl,
+    externalUrl: baseUrl,
+    title: addr,
+    type: 'map'
+  });
 }
 </script>
 </head>
@@ -592,9 +598,9 @@ document.querySelectorAll(".view-details-btn").forEach(btn => {
     addRow("Language", data.language || '');
     addRow("User Type", data.user_type || '');
 
-    // Address (clickable map) + Escalation Session ID (NEW)
-    addRow("Address", data.address 
-      ? `<a href="javascript:void(0)" onclick="openMapPopup('${(String(data.address)).replace(/'/g,"\\'")}')">${String(data.address)}</a>`
+    const addressText = data.address ? String(data.address) : '';
+    addRow("Address", addressText
+      ? `<a href="javascript:void(0);" class="map-preview-link" data-address="${addressText.replace(/"/g,'&quot;')}">${addressText}</a>`
       : '—'
     );
     addRow("Escalation Session ID", data.escalation_session_id || '—');
@@ -603,7 +609,7 @@ document.querySelectorAll(".view-details-btn").forEach(btn => {
     addRow("Notes", data.notes ? `<a href="javascript:void(0);" class="view-notes-btn" data-notes="${String(data.notes).replace(/"/g,'&quot;')}">View Notes</a>` : 'No Notes');
 
     // Audio
-    if (audio) addRow("Audio", `<a href="${audio}" target="_blank">Play Audio</a>`);
+    if (audio) addRow("Audio", `<a href="javascript:void(0);" class="audio-preview-link" data-audio="${audio}">Play Audio</a>`);
 
     // Informed Consent
     addRow("Informed Consent", data.informed_consent ? 'Yes' : 'No');
@@ -613,6 +619,20 @@ document.querySelectorAll(".view-details-btn").forEach(btn => {
       nbtn.addEventListener("click", () => {
         modalNotes.innerHTML = nbtn.getAttribute("data-notes") || '';
         notesModal.style.display = "block";
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.audio-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const audioUrl = link.getAttribute('data-audio') || '';
+        openPreviewModal({ url: audioUrl, type: 'audio', title: 'Audio Preview', externalUrl: audioUrl });
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.map-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const addr = link.getAttribute('data-address') || '';
+        openMapPopup(addr);
       });
     });
 
