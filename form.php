@@ -189,23 +189,53 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   flex: 1;
   border: 1px solid #dde4f2;
   border-radius: 8px;
-  background: #0a0a0a;
+  background: linear-gradient(135deg, #f7f9ff, #eef2ff);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  transition: background 0.3s ease;
 }
-.attachment-body iframe,
-.attachment-body audio {
+.attachment-body.audio-active {
+  background: #eef4ff;
+  padding: 24px;
+}
+.attachment-body iframe {
   width: 100%;
   height: 100%;
   border: none;
   background: #fff;
 }
-.attachment-body audio {
-  height: auto;
-  background: #111;
-  padding: 12px;
+.audio-player {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.audio-player audio {
+  width: 100%;
+  display: block;
+  background: #f2f6ff;
+  border-radius: 8px;
+  padding: 6px 0;
+}
+.audio-status {
+  font-size: 0.95rem;
+  color: #3b4a6b;
+}
+.audio-status.hint {
+  color: #5a6d92;
+  font-style: italic;
+}
+.audio-status.error {
+  color: #c0392b;
+  font-weight: 600;
 }
 .attachment-actions {
   margin-top: 15px;
@@ -522,6 +552,19 @@ window.openMapPopup = openMapPopup;
   </div>
 </div>
 
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
 <!-- Attachment Modal -->
 <div id="attachmentModal" class="modal attachment-modal">
   <div class="modal-content">
@@ -576,6 +619,7 @@ function openPreviewModal({ url, title, type = 'attachment', externalUrl = '' })
           : 'Attachment Preview');
   previewTitle.textContent = safeTitle;
   previewBody.innerHTML = '';
+  previewBody.classList.remove('audio-active');
 
   const external = externalUrl && externalUrl.trim() ? externalUrl : url;
   if (external) {
@@ -587,26 +631,46 @@ function openPreviewModal({ url, title, type = 'attachment', externalUrl = '' })
   }
 
   if (type === 'audio') {
+    previewBody.classList.add('audio-active');
+
+    const player = document.createElement('div');
+    player.className = 'audio-player';
+
+    const status = document.createElement('div');
+    status.className = 'audio-status';
+    status.textContent = 'Loading audio preview…';
+    player.appendChild(status);
+
     const audio = document.createElement('audio');
     audio.controls = true;
-    audio.setAttribute('controls', 'controls');
-    audio.preload = 'metadata';
-    audio.style.width = '100%';
+    audio.preload = 'auto';
+    audio.src = url;
     audio.setAttribute('aria-label', safeTitle);
+    player.appendChild(audio);
 
-    const source = document.createElement('source');
-    source.src = url;
-    source.type = 'audio/mpeg';
-    audio.appendChild(source);
+    audio.addEventListener('loadeddata', () => {
+      status.textContent = 'Press play to listen.';
+      status.classList.add('hint');
+    });
 
-    const fallback = document.createElement('p');
-    fallback.style.color = '#fff';
-    fallback.style.padding = '12px';
-    fallback.textContent = 'Your browser could not load this audio preview.';
-    audio.appendChild(fallback);
+    audio.addEventListener('play', () => {
+      status.remove();
+    }, { once: true });
 
-    previewBody.appendChild(audio);
-    try { audio.load(); } catch (err) { console.warn('Audio preview load failed', err); }
+    audio.addEventListener('error', () => {
+      status.textContent = 'We could not load the audio preview. Use "Open in New Tab".';
+      status.classList.remove('hint');
+      status.classList.add('error');
+      if (audio.parentNode === player) {
+        player.removeChild(audio);
+      }
+    });
+
+    previewBody.appendChild(player);
+
+    requestAnimationFrame(() => {
+      try { audio.load(); } catch (err) { console.warn('Audio preview load failed', err); }
+    });
   } else {
     const iframe = buildIframe(url, safeTitle);
     previewBody.appendChild(iframe);
@@ -624,6 +688,7 @@ function closePreviewModal() {
   }
   previewModal.style.display = "none";
   previewBody.innerHTML = '';
+  previewBody.classList.remove('audio-active');
 }
 
 window.closePreviewModal = closePreviewModal;
@@ -700,6 +765,20 @@ document.querySelectorAll(".view-details-btn").forEach(btn => {
       nbtn.addEventListener("click", () => {
         modalNotes.innerHTML = nbtn.getAttribute("data-notes") || '';
         notesModal.style.display = "block";
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.audio-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const audioUrl = link.getAttribute('data-audio') || '';
+        openPreviewModal({ url: audioUrl, type: 'audio', title: 'Audio Preview', externalUrl: audioUrl });
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.map-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const addr = link.getAttribute('data-address') || '';
+        openMapPopup(addr);
       });
     });
 
