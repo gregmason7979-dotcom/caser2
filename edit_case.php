@@ -98,8 +98,13 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
     }
 
     if(!empty($newNote)) {
-        date_default_timezone_set('Australia/Sydney');
-        $timestamp = date("Y-m-d H:i:s");
+        $tzName = @date_default_timezone_get();
+        try {
+            $noteTz = new DateTimeZone($tzName ?: 'UTC');
+        } catch (Exception $e) {
+            $noteTz = new DateTimeZone('UTC');
+        }
+        $timestamp = (new DateTime('now', $noteTz))->format("Y-m-d H:i:s");
         $noteWithTime = "<b style='color:blue;'>[".$timestamp."]</b> ".$newNote;
 
         $params = [
