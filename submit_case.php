@@ -79,7 +79,17 @@ if ($chk && sqlsrv_fetch($chk)) {
 }
 
 // Fix datetime for SQL
-$date_time_sql = !empty($date_time) ? (str_replace('T',' ',$date_time).':00') : date('Y-m-d H:i:s');
+$tzSydney = new DateTimeZone('Australia/Sydney');
+if (!empty($date_time)) {
+  try {
+    $dt = new DateTime($date_time, $tzSydney);
+  } catch (Exception $e) {
+    $dt = new DateTime('now', $tzSydney);
+  }
+} else {
+  $dt = new DateTime('now', $tzSydney);
+}
+$date_time_sql = $dt->format('Y-m-d H:i:s');
 
 // Handle attachments: save & append as links into notes
 $attachmentLinks = [];
