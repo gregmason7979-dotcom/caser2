@@ -78,24 +78,16 @@ if ($chk && sqlsrv_fetch($chk)) {
   die("A case with this Case Number already exists.");
 }
 
-// Fix datetime for SQL using the server's configured timezone
-$tzName = @date_default_timezone_get();
-try {
-  $serverTz = new DateTimeZone($tzName ?: 'UTC');
-} catch (Exception $e) {
-  $serverTz = new DateTimeZone('UTC');
-}
+// Fix datetime for SQL
+$tzSydney = new DateTimeZone('Australia/Sydney');
 if (!empty($date_time)) {
-  $dt = DateTime::createFromFormat('Y-m-d\TH:i', $date_time, $serverTz);
-  if ($dt === false) {
-    try {
-      $dt = new DateTime($date_time, $serverTz);
-    } catch (Exception $e) {
-      $dt = new DateTime('now', $serverTz);
-    }
+  try {
+    $dt = new DateTime($date_time, $tzSydney);
+  } catch (Exception $e) {
+    $dt = new DateTime('now', $tzSydney);
   }
 } else {
-  $dt = new DateTime('now', $serverTz);
+  $dt = new DateTime('now', $tzSydney);
 }
 $date_time_sql = $dt->format('Y-m-d H:i:s');
 
