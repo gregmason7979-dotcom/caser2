@@ -77,10 +77,16 @@ $ok = false;
 if (!$err && $httpInfo['http_code'] == 200) {
   // Try common result tags
   if (preg_match('/<AddRequestResult[^>]*>(.*?)<\/AddRequestResult>/s', $response, $m)) {
-    $sessionId = trim(strip_tags($m[1]));
+    $inner = $m[1];
+    if (preg_match('/<RequestID[^>]*>(.*?)<\/RequestID>/s', $inner, $mReq)) {
+      $sessionId = trim($mReq[1]);
+    } else {
+      $sessionId = trim(strip_tags($inner));
+    }
     $ok = !empty($sessionId);
-  } elseif (preg_match('/<RequestID[^>]*>(.*?)<\/RequestID>/s', $response, $m2)) {
-    $sessionId = trim(strip_tags($m2[1]));
+  }
+  if (!$ok && preg_match('/<RequestID[^>]*>(.*?)<\/RequestID>/s', $response, $m2)) {
+    $sessionId = trim($m2[1]);
     $ok = !empty($sessionId);
   }
 }
