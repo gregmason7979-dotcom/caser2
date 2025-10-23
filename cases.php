@@ -217,12 +217,6 @@ function openMapPopup(addr){
 window.openMapPopup = openMapPopup;
 </script>
 
-<script>
-const CASES_BY_NUMBER = <?php echo $casesByNumberJson; ?>;
-const CASES_BY_PHONE  = <?php echo $casesByPhoneJson; ?>;
-const AUDIO_BY_CASE   = <?php echo $audioByCaseJson; ?>;
-</script>
-
 <style>
 /* Header / Navbar */
 .header {
@@ -479,6 +473,47 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   background: #005bb5;
 }
 
+/* Previous cases modal */
+.previous-cases-content {
+  max-width: 680px;
+  width: 95%;
+}
+.previous-cases-body {
+  max-height: 420px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+.previous-cases-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+.previous-cases-table th,
+.previous-cases-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e3eaf9;
+  text-align: left;
+  font-size: 14px;
+}
+.previous-cases-table tbody tr:nth-child(even) {
+  background: #f7f9ff;
+}
+.previous-cases-table .history-view-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #0073e6;
+  color: #fff;
+  text-decoration: none;
+  border: 1px solid #005bb5;
+  display: inline-block;
+}
+.previous-cases-table .history-view-btn:hover {
+  background: #005bb5;
+}
+
 /* Pagination */
 .pagination {
   display:flex; gap:6px; justify-content:center; align-items:center; margin-top:14px;
@@ -682,6 +717,111 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   </div>
 </div>
 
+<!-- Previous Cases Modal -->
+<div id="previousCasesModal" class="modal">
+  <div class="modal-content previous-cases-content">
+    <span class="close" aria-label="Close previous cases">&times;</span>
+    <h3>Previous Cases</h3>
+    <div id="previousCasesBody" class="previous-cases-body"></div>
+    <div class="details-actions">
+      <a href="javascript:void(0);" class="btn" id="closePreviousCasesBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Attachment Modal -->
+<div id="attachmentModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close attachment">&times;</span>
+    <h3 id="attachmentTitle">Attachment Preview</h3>
+    <div class="attachment-body">
+      <iframe id="attachmentFrame" title="Attachment preview"></iframe>
+    </div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="downloadAttachmentLink" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closeAttachmentBtn">Close</a>
+    </div>
+  </div>
+</div>
+
 <script>
 const pieCtx = document.getElementById('statusPie');
 new Chart(pieCtx, {
@@ -843,6 +983,79 @@ if (modalNotes) {
     openPreviewModal({ url: targetUrl, title: filename, type: 'attachment' });
   });
 }
+
+// Details Modal
+const detailsModal = document.getElementById("detailsModal");
+const detailsCloseIcon = detailsModal.querySelector(".close");
+const closeDetailsBtn  = document.getElementById("closeDetailsBtn");
+const detailsTableBody = document.querySelector("#detailsTable tbody");
+
+function addRow(label, valueHtml) {
+  const tr = document.createElement('tr');
+  const th = document.createElement('th');
+  const td = document.createElement('td');
+  th.textContent = label;
+  td.innerHTML   = valueHtml || '—';
+  tr.appendChild(th);
+  tr.appendChild(td);
+  detailsTableBody.appendChild(tr);
+}
+
+document.querySelectorAll(".view-details-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const data  = JSON.parse(btn.getAttribute("data-case"));
+    const audio = btn.getAttribute("data-audio") || '';
+    detailsTableBody.innerHTML = "";
+
+    addRow("Date/Time", data.date_time_str || '');
+    addRow("Case #", data.case_number || '');
+    addRow("Status", data.status || '');
+    addRow("SPN", data.spn || '');
+    const fullName = `${data.first_name||''} ${data.middle_name||''} ${data.family_name||''}`.trim();
+    addRow("Name", fullName || '');
+    addRow("Phone", data.phone_number ? `<a href="tel:${data.phone_number}">${data.phone_number}</a>` : '—');
+
+    // B) Address (clickable map) and Escalation Session ID
+    const addressText = data.address ? String(data.address) : '';
+    addRow("Address", (addressText && addressText.trim() !== '')
+      ? `<a href="javascript:void(0);" class="map-preview-link" data-address="${addressText.replace(/"/g,'&quot;')}">${addressText}</a>`
+      : '—'
+    );
+    addRow("Escalation Session ID", data.escalation_session_id || '—');
+
+    addRow("Gender", data.gender || '');
+    addRow("Disability", data.disability || '');
+    addRow("Language", data.language || '');
+    addRow("User Type", data.user_type || '');
+    addRow("Notes", data.notes ? `<a href="javascript:void(0);" class="view-notes-btn" data-notes="${String(data.notes).replace(/"/g,'&quot;')}">View Notes</a>` : 'No Notes');
+    if (audio) addRow("Audio", `<a href="javascript:void(0);" class="audio-preview-link" data-audio="${audio}">Play Audio</a>`);
+    addRow("Informed Consent", data.informed_consent ? 'Yes' : 'No');
+
+    // bind nested View Notes inside details
+    detailsTableBody.querySelectorAll(".view-notes-btn").forEach(nbtn => {
+      nbtn.addEventListener("click", () => {
+        modalNotes.innerHTML = nbtn.getAttribute("data-notes") || '';
+        notesModal.style.display = "block";
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.audio-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const audioUrl = link.getAttribute('data-audio') || '';
+        openPreviewModal({ url: audioUrl, type: 'audio', title: 'Audio Preview', externalUrl: audioUrl });
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.map-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const addr = link.getAttribute('data-address') || '';
+        openMapPopup(addr);
+      });
+    });
+
+    detailsModal.style.display = "block";
+  });
+});
 
 // Details Modal and Previous Cases
 const detailsModal = document.getElementById("detailsModal");
@@ -1041,7 +1254,6 @@ closePreviousCasesBtn.onclick  = closePreviousCasesModal;
 window.onclick = e => {
   if(e.target == notesModal) notesModal.style.display = "none";
   if(e.target == detailsModal) detailsModal.style.display = "none";
-  if(e.target == previousCasesModal) closePreviousCasesModal();
   if(e.target == previewModal) closePreviewModal();
 };
 
@@ -1050,7 +1262,6 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     notesModal.style.display = "none";
     detailsModal.style.display = "none";
-    closePreviousCasesModal();
     closePreviewModal();
   }
 });
