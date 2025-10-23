@@ -102,6 +102,53 @@ function grantUploadAccess($path, $isDirectory = false) {
   }
 }
 
+function grantUploadAccess($path, $isDirectory = false) {
+  static $account = null;
+  static $owner = null;
+  if (!is_string($path) || $path === '') {
+    return;
+  }
+  if ($account === null) {
+    $account = getenv('CASE_UPLOADS_ACCOUNT');
+    if ($account === false) {
+      $account = '';
+    }
+    $account = trim($account);
+    if ($account === '') {
+      $account = 'Users';
+    }
+  }
+  if ($owner === null) {
+    $owner = getenv('CASE_UPLOADS_OWNER');
+    $owner = $owner === false ? '' : trim($owner);
+  }
+  if (!function_exists('exec') || stripos(PHP_OS_FAMILY, 'Windows') === false) {
+    return;
+  }
+  if (!file_exists($path)) {
+    return;
+  }
+  if ($account !== '') {
+    $permission = $isDirectory ? '(OI)(CI)RX' : '(R)';
+    $command = 'icacls ' . escapeshellarg($path) . ' /grant ' . escapeshellarg($account) . ':' . $permission;
+    $output = [];
+    $status = 0;
+    @exec($command . ' 2>&1', $output, $status);
+    if ($status !== 0 && !empty($output)) {
+      error_log('icacls failed for ' . $path . ': ' . implode('; ', $output));
+    }
+  }
+  if ($owner !== '') {
+    $setOwner = 'icacls ' . escapeshellarg($path) . ' /setowner ' . escapeshellarg($owner);
+    $ownerOutput = [];
+    $ownerStatus = 0;
+    @exec($setOwner . ' 2>&1', $ownerOutput, $ownerStatus);
+    if ($ownerStatus !== 0 && !empty($ownerOutput)) {
+      error_log('icacls setowner failed for ' . $path . ': ' . implode('; ', $ownerOutput));
+    }
+  }
+}
+
 $case_number      = $_POST['case_number'] ?? '';
 $date_time        = $_POST['date_time'] ?? '';
 $spn              = $_POST['spn'] ?? '';

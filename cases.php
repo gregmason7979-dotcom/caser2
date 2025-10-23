@@ -119,6 +119,56 @@ function scanRemoteDir($url, $depth=0, $maxDepth=2, &$visited=[]) {
 $audio_dir_url = "http://192.168.1.154/secrecord";
 $mp3_files = scanRemoteDir($audio_dir_url);
 
+// Build lookup tables for case metadata and related audio/phone mappings
+$casesByNumber = [];
+$casesByPhone  = [];
+$audioByCase   = [];
+
+foreach ($rows as $row) {
+    $caseNum = isset($row['case_number']) ? (string)$row['case_number'] : '';
+    if ($caseNum === '') {
+        continue;
+    }
+
+    if (!isset($audioByCase[$caseNum])) {
+        foreach ($mp3_files as $file) {
+            if (stripos(basename($file), $caseNum) !== false) {
+                $audioByCase[$caseNum] = $file;
+                break;
+            }
+        }
+    }
+
+    $caseData = [
+        'case_number' => $caseNum,
+        'date_time_str' => isset($row['date_time_str']) ? (string)$row['date_time_str'] : '',
+        'status' => isset($row['status']) ? (string)$row['status'] : '',
+        'spn' => isset($row['spn']) ? (string)$row['spn'] : '',
+        'first_name' => isset($row['first_name']) ? (string)$row['first_name'] : '',
+        'middle_name' => isset($row['middle_name']) ? (string)$row['middle_name'] : '',
+        'family_name' => isset($row['family_name']) ? (string)$row['family_name'] : '',
+        'phone_number' => isset($row['phone_number']) ? trim((string)$row['phone_number']) : '',
+        'address' => isset($row['address']) ? (string)$row['address'] : '',
+        'escalation_session_id' => isset($row['escalation_session_id']) ? (string)$row['escalation_session_id'] : '',
+        'gender' => isset($row['gender']) ? (string)$row['gender'] : '',
+        'disability' => isset($row['disability']) ? (string)$row['disability'] : '',
+        'language' => isset($row['language']) ? (string)$row['language'] : '',
+        'user_type' => isset($row['user_type']) ? (string)$row['user_type'] : '',
+        'notes' => isset($row['notes']) ? (string)$row['notes'] : '',
+        'informed_consent' => !empty($row['informed_consent']) ? 1 : 0,
+    ];
+
+    $casesByNumber[$caseNum] = $caseData;
+
+    $phoneKey = $caseData['phone_number'];
+    if ($phoneKey !== '') {
+        if (!isset($casesByPhone[$phoneKey])) {
+            $casesByPhone[$phoneKey] = [];
+        }
+        $casesByPhone[$phoneKey][] = $caseNum;
+    }
+}
+
 // ------------- Pagination: 10 per page -------------
 $per_page = 10;
 $total = count($rows);
@@ -373,6 +423,47 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   background:#f3f7ff;
 }
 
+/* Previous cases modal */
+.previous-cases-content {
+  max-width: 680px;
+  width: 95%;
+}
+.previous-cases-body {
+  max-height: 420px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+.previous-cases-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+.previous-cases-table th,
+.previous-cases-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e3eaf9;
+  text-align: left;
+  font-size: 14px;
+}
+.previous-cases-table tbody tr:nth-child(even) {
+  background: #f7f9ff;
+}
+.previous-cases-table .history-view-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #0073e6;
+  color: #fff;
+  text-decoration: none;
+  border: 1px solid #005bb5;
+  display: inline-block;
+}
+.previous-cases-table .history-view-btn:hover {
+  background: #005bb5;
+}
+
 /* Pagination */
 .pagination {
   display:flex; gap:6px; justify-content:center; align-items:center; margin-top:14px;
@@ -470,15 +561,9 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
             $highlight = 'highlight-orange';
         }
 
-        // audio link by case number match
+        // audio link by case number match from lookup
         $case_number = $row['case_number'];
-        $audioLink = '';
-        foreach ($mp3_files as $file) {
-            if (stripos(basename($file), (string)$case_number) !== false) {
-                $audioLink = $file;
-                break;
-            }
-        }
+        $audioLink = isset($audioByCase[(string)$case_number]) ? $audioByCase[(string)$case_number] : '';
 
         echo "<tr class='$highlight'>";
         echo "<td>". ($rowDate ? $rowDate->format('Y-m-d H:i') : '') ."</td>";
@@ -494,9 +579,9 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
         echo "</td>";
 
         echo "<td>
-                <a href='javascript:void(0);' class='view-details-btn' 
-                   data-case='".htmlspecialchars(json_encode($row), ENT_QUOTES)."' 
-                   data-audio='".htmlspecialchars($audioLink, ENT_QUOTES)."'>View Details</a> | 
+                <a href='javascript:void(0);' class='view-details-btn'
+                   data-case-number='".htmlspecialchars((string)$case_number, ENT_QUOTES)."'
+                   data-audio='".htmlspecialchars($audioLink, ENT_QUOTES)."'>View Details</a> |
                 <a class='edit-link' href='edit_case.php?id=".urlencode((string)$case_number)."'>Edit</a>";
         if ($statusLower == 'open') {
             echo " | <a class='edit-link' href='cases.php?close_case=".urlencode((string)$case_number)."' onclick=\"return confirm('Close this case?');\">Close</a> | 
@@ -553,6 +638,31 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
       <div class="details-actions">
         <a href="javascript:void(0);" class="btn" id="closeDetailsBtn">Close</a>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Previous Cases Modal -->
+<div id="previousCasesModal" class="modal">
+  <div class="modal-content previous-cases-content">
+    <span class="close" aria-label="Close previous cases">&times;</span>
+    <h3>Previous Cases</h3>
+    <div id="previousCasesBody" class="previous-cases-body"></div>
+    <div class="details-actions">
+      <a href="javascript:void(0);" class="btn" id="closePreviousCasesBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
     </div>
   </div>
 </div>
