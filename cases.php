@@ -208,12 +208,6 @@ function openMapPopup(addr){
 window.openMapPopup = openMapPopup;
 </script>
 
-<script>
-const CASES_BY_NUMBER = <?php echo json_encode($casesByNumber, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>;
-const CASES_BY_PHONE  = <?php echo json_encode($casesByPhone, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>;
-const AUDIO_BY_CASE   = <?php echo json_encode($audioByCase, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>;
-</script>
-
 <style>
 /* Header / Navbar */
 .header {
@@ -673,6 +667,86 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   </div>
 </div>
 
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
+<!-- Attachment Modal -->
+<div id="attachmentModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close attachment">&times;</span>
+    <h3 id="attachmentTitle">Attachment Preview</h3>
+    <div class="attachment-body">
+      <iframe id="attachmentFrame" title="Attachment preview"></iframe>
+    </div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="downloadAttachmentLink" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closeAttachmentBtn">Close</a>
+    </div>
+  </div>
+</div>
+
 <script>
 const pieCtx = document.getElementById('statusPie');
 new Chart(pieCtx, {
@@ -835,34 +909,11 @@ if (modalNotes) {
   });
 }
 
-// Details Modal and Previous Cases
+// Details Modal
 const detailsModal = document.getElementById("detailsModal");
 const detailsCloseIcon = detailsModal.querySelector(".close");
 const closeDetailsBtn  = document.getElementById("closeDetailsBtn");
 const detailsTableBody = document.querySelector("#detailsTable tbody");
-const previousCasesModal = document.getElementById("previousCasesModal");
-const previousCasesBody  = document.getElementById("previousCasesBody");
-const previousCasesCloseIcon = previousCasesModal.querySelector(".close");
-const closePreviousCasesBtn = document.getElementById("closePreviousCasesBtn");
-
-const htmlEscape = (value) => {
-  return value === null || value === undefined
-    ? ''
-    : String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-};
-
-const attrEscape = (value) => {
-  return value === null || value === undefined
-    ? ''
-    : String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;');
-};
 
 function addRow(label, valueHtml) {
   const tr = document.createElement('tr');
@@ -875,164 +926,69 @@ function addRow(label, valueHtml) {
   detailsTableBody.appendChild(tr);
 }
 
-function closePreviousCasesModal() {
-  previousCasesModal.style.display = "none";
-}
+document.querySelectorAll(".view-details-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const data  = JSON.parse(btn.getAttribute("data-case"));
+    const audio = btn.getAttribute("data-audio") || '';
+    detailsTableBody.innerHTML = "";
 
-function openPreviousCasesList(phone, currentCaseNumber) {
-  if (!phone || !CASES_BY_PHONE || !Array.isArray(CASES_BY_PHONE[phone])) {
-    return;
-  }
+    addRow("Date/Time", data.date_time_str || '');
+    addRow("Case #", data.case_number || '');
+    addRow("Status", data.status || '');
+    addRow("SPN", data.spn || '');
+    const fullName = `${data.first_name||''} ${data.middle_name||''} ${data.family_name||''}`.trim();
+    addRow("Name", fullName || '');
+    addRow("Phone", data.phone_number ? `<a href="tel:${data.phone_number}">${data.phone_number}</a>` : '—');
 
-  const relatedNumbers = CASES_BY_PHONE[phone].filter(num => num !== currentCaseNumber);
-  if (!relatedNumbers.length) {
-    return;
-  }
+    // B) Address (clickable map) and Escalation Session ID
+    const addressText = data.address ? String(data.address) : '';
+    addRow("Address", (addressText && addressText.trim() !== '')
+      ? `<a href="javascript:void(0);" class="map-preview-link" data-address="${addressText.replace(/"/g,'&quot;')}">${addressText}</a>`
+      : '—'
+    );
+    addRow("Escalation Session ID", data.escalation_session_id || '—');
 
-  const records = relatedNumbers
-    .map(num => CASES_BY_NUMBER[num])
-    .filter(Boolean)
-    .sort((a, b) => {
-      const aDate = a.date_time_str || '';
-      const bDate = b.date_time_str || '';
-      return bDate.localeCompare(aDate);
+    addRow("Gender", data.gender || '');
+    addRow("Disability", data.disability || '');
+    addRow("Language", data.language || '');
+    addRow("User Type", data.user_type || '');
+    addRow("Notes", data.notes ? `<a href="javascript:void(0);" class="view-notes-btn" data-notes="${String(data.notes).replace(/"/g,'&quot;')}">View Notes</a>` : 'No Notes');
+    if (audio) addRow("Audio", `<a href="javascript:void(0);" class="audio-preview-link" data-audio="${audio}">Play Audio</a>`);
+    addRow("Informed Consent", data.informed_consent ? 'Yes' : 'No');
+
+    // bind nested View Notes inside details
+    detailsTableBody.querySelectorAll(".view-notes-btn").forEach(nbtn => {
+      nbtn.addEventListener("click", () => {
+        modalNotes.innerHTML = nbtn.getAttribute("data-notes") || '';
+        notesModal.style.display = "block";
+      });
     });
 
-  if (!records.length) {
-    return;
-  }
-
-  let tableHtml = '<table class="previous-cases-table">';
-  tableHtml += '<thead><tr><th>Date/Time</th><th>Case #</th><th>Status</th><th></th></tr></thead><tbody>';
-  records.forEach(record => {
-    const caseNum = record.case_number || '';
-    tableHtml += '<tr>' +
-      '<td>' + htmlEscape(record.date_time_str || '') + '</td>' +
-      '<td>' + htmlEscape(caseNum) + '</td>' +
-      '<td>' + htmlEscape(record.status || '') + '</td>' +
-      '<td><a href="javascript:void(0);" class="history-view-btn" data-case="' + attrEscape(caseNum) + '">View Case</a></td>' +
-      '</tr>';
-  });
-  tableHtml += '</tbody></table>';
-
-  previousCasesBody.innerHTML = tableHtml;
-  previousCasesModal.style.display = "block";
-
-  previousCasesBody.querySelectorAll('.history-view-btn').forEach(link => {
-    link.addEventListener('click', () => {
-      const caseNum = link.getAttribute('data-case');
-      closePreviousCasesModal();
-      openCaseDetails(caseNum);
+    detailsTableBody.querySelectorAll('.audio-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const audioUrl = link.getAttribute('data-audio') || '';
+        openPreviewModal({ url: audioUrl, type: 'audio', title: 'Audio Preview', externalUrl: audioUrl });
+      });
     });
-  });
-}
 
-function openCaseDetails(caseNumber) {
-  if (!caseNumber || !CASES_BY_NUMBER || !CASES_BY_NUMBER[caseNumber]) {
-    return;
-  }
-
-  const data = CASES_BY_NUMBER[caseNumber];
-
-  detailsTableBody.innerHTML = '';
-
-  addRow('Date/Time', htmlEscape(data.date_time_str || ''));
-  addRow('Case #', htmlEscape(data.case_number || ''));
-  addRow('Status', htmlEscape(data.status || ''));
-  addRow('SPN', htmlEscape(data.spn || ''));
-
-  const fullName = `${data.first_name || ''} ${data.middle_name || ''} ${data.family_name || ''}`.trim();
-  addRow('Name', htmlEscape(fullName));
-
-  const phone = data.phone_number || '';
-  addRow('Phone', phone ? `<a href="tel:${attrEscape(phone)}">${htmlEscape(phone)}</a>` : '—');
-
-  const addressText = data.address || '';
-  addRow('Address', addressText && addressText.trim() !== ''
-    ? `<a href="javascript:void(0);" class="map-preview-link" data-address="${attrEscape(addressText)}">${htmlEscape(addressText)}</a>`
-    : '—'
-  );
-
-  addRow('Escalation Session ID', htmlEscape(data.escalation_session_id || '—'));
-  addRow('Gender', htmlEscape(data.gender || ''));
-  addRow('Disability', htmlEscape(data.disability || ''));
-  addRow('Language', htmlEscape(data.language || ''));
-  addRow('User Type', htmlEscape(data.user_type || ''));
-
-  const notesText = data.notes || '';
-  addRow('Notes', notesText
-    ? `<a href="javascript:void(0);" class="view-notes-btn" data-notes="${attrEscape(notesText)}">View Notes</a>`
-    : 'No Notes');
-
-  const audioUrl = AUDIO_BY_CASE[caseNumber] || '';
-  if (audioUrl) {
-    addRow('Audio', `<a href="javascript:void(0);" class="audio-preview-link" data-audio="${attrEscape(audioUrl)}">Play Audio</a>`);
-  }
-
-  const phoneGroup = (phone && CASES_BY_PHONE && Array.isArray(CASES_BY_PHONE[phone])) ? CASES_BY_PHONE[phone] : [];
-  const related = phoneGroup.length
-    ? phoneGroup.filter(num => num !== caseNumber)
-    : [];
-  const previousHtml = related.length
-    ? `<a href="javascript:void(0);" class="previous-cases-link" data-phone="${attrEscape(phone)}" data-current="${attrEscape(caseNumber)}">Previous Cases (${related.length})</a>`
-    : 'No previous cases';
-  addRow('Previous Cases', previousHtml);
-
-  addRow('Informed Consent', data.informed_consent ? 'Yes' : 'No');
-
-  detailsTableBody.querySelectorAll('.view-notes-btn').forEach(nbtn => {
-    nbtn.addEventListener('click', () => {
-      modalNotes.innerHTML = nbtn.getAttribute('data-notes') || '';
-      notesModal.style.display = 'block';
+    detailsTableBody.querySelectorAll('.map-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const addr = link.getAttribute('data-address') || '';
+        openMapPopup(addr);
+      });
     });
-  });
 
-  detailsTableBody.querySelectorAll('.audio-preview-link').forEach(link => {
-    link.addEventListener('click', () => {
-      const audioLink = link.getAttribute('data-audio') || '';
-      openPreviewModal({ url: audioLink, type: 'audio', title: 'Audio Preview', externalUrl: audioLink });
-    });
-  });
-
-  detailsTableBody.querySelectorAll('.map-preview-link').forEach(link => {
-    link.addEventListener('click', () => {
-      const addr = link.getAttribute('data-address') || '';
-      openMapPopup(addr);
-    });
-  });
-
-  detailsTableBody.querySelectorAll('.previous-cases-link').forEach(link => {
-    link.addEventListener('click', () => {
-      const phoneValue = link.getAttribute('data-phone');
-      const current = link.getAttribute('data-current');
-      openPreviousCasesList(phoneValue, current);
-    });
-  });
-
-  detailsModal.style.display = 'block';
-}
-
-document.querySelectorAll('.view-details-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const caseNumber = btn.getAttribute('data-case-number');
-    const audioOverride = btn.getAttribute('data-audio') || '';
-    if (caseNumber && audioOverride && !AUDIO_BY_CASE[caseNumber]) {
-      AUDIO_BY_CASE[caseNumber] = audioOverride;
-    }
-    openCaseDetails(caseNumber);
+    detailsModal.style.display = "block";
   });
 });
 
-detailsCloseIcon.onclick = () => { detailsModal.style.display = 'none'; };
-closeDetailsBtn.onclick  = () => { detailsModal.style.display = 'none'; };
-previousCasesCloseIcon.onclick = closePreviousCasesModal;
-closePreviousCasesBtn.onclick  = closePreviousCasesModal;
+detailsCloseIcon.onclick = () => { detailsModal.style.display = "none"; };
+closeDetailsBtn.onclick  = () => { detailsModal.style.display = "none"; };
 
 // Close modals when clicking outside
 window.onclick = e => {
   if(e.target == notesModal) notesModal.style.display = "none";
   if(e.target == detailsModal) detailsModal.style.display = "none";
-  if(e.target == previousCasesModal) closePreviousCasesModal();
   if(e.target == previewModal) closePreviewModal();
 };
 
@@ -1041,7 +997,6 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     notesModal.style.display = "none";
     detailsModal.style.display = "none";
-    closePreviousCasesModal();
     closePreviewModal();
   }
 });

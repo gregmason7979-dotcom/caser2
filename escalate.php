@@ -73,45 +73,21 @@ $err      = curl_error($ch);
 curl_close($ch);
 
 $sessionId = null;
-$statusToken = null;
 $ok = false;
 if (!$err && $httpInfo['http_code'] == 200) {
-  $xml = @simplexml_load_string($response);
-  if ($xml !== false) {
-    $matches = $xml->xpath('//*[local-name()="RequestID"]');
-    if ($matches && isset($matches[0])) {
-      $sessionId = trim((string)$matches[0]);
-      $ok = ($sessionId !== '');
+  // Try common result tags
+  if (preg_match('/<AddRequestResult[^>]*>(.*?)<\/AddRequestResult>/s', $response, $m)) {
+    $inner = $m[1];
+    if (preg_match('/<RequestID[^>]*>(.*?)<\/RequestID>/s', $inner, $mReq)) {
+      $sessionId = trim($mReq[1]);
+    } else {
+      $sessionId = trim(strip_tags($inner));
     }
-    $statusNodes = $xml->xpath('//*[local-name()="Status"]');
-    if ($statusNodes && isset($statusNodes[0])) {
-      $statusToken = trim((string)$statusNodes[0]);
-    }
+    $ok = !empty($sessionId);
   }
-  if (!$ok) {
-    // Fallback to regex for unusual namespace prefixes
-    if (preg_match('/<(?:[A-Za-z0-9_]+:)?RequestID[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?RequestID>/s', $response, $m)) {
-      $sessionId = trim($m[1]);
-      $ok = ($sessionId !== '');
-    }
-  }
-  if ($statusToken === null && preg_match('/<(?:[A-Za-z0-9_]+:)?Status[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?Status>/s', $response, $mStatus)) {
-    $statusToken = trim($mStatus[1]);
-  }
-  if ($ok) {
-    if ($statusToken) {
-      $sessionId = preg_replace('/' . preg_quote($statusToken, '/') . '$/i', '', $sessionId);
-    }
-    $sessionId = trim($sessionId);
-    if (preg_match('/^([A-Za-z0-9\-]+?)(?:Success)?$/i', $sessionId, $mTrimmed)) {
-      $sessionId = $mTrimmed[1];
-    } elseif (preg_match('/^([0-9]+)/', $sessionId, $mDigits)) {
-      $sessionId = $mDigits[1];
-    }
-  }
-  if ($ok) {
-    $sessionId = trim($sessionId);
-    $ok = ($sessionId !== '');
+  if (!$ok && preg_match('/<RequestID[^>]*>(.*?)<\/RequestID>/s', $response, $m2)) {
+    $sessionId = trim($m2[1]);
+    $ok = !empty($sessionId);
   }
 }
 
