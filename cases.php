@@ -872,6 +872,7 @@ const previousCasesCloseIcon = previousCasesModal.querySelector(".close");
 const closePreviousCasesBtn = document.getElementById("closePreviousCasesBtn");
 
 let detailsHistory = [];
+let pendingDetailsFromLists = [];
 let activeDetailsCase = null;
 
 const htmlEscape = (value) => {
@@ -907,6 +908,13 @@ function addRow(label, valueHtml) {
 function closePreviousCasesModal() {
   previousCasesModal.style.display = "none";
   detailsModal.style.zIndex = '';
+
+  if (pendingDetailsFromLists.length > 0) {
+    const caseToRestore = pendingDetailsFromLists.pop();
+    if (caseToRestore) {
+      openCaseDetails(caseToRestore, { pushHistory: false });
+    }
+  }
 }
 
 function openPreviousCasesList(phone, currentCaseNumber) {
@@ -962,10 +970,14 @@ function openCaseDetails(caseNumber, options = {}) {
   }
 
   const pushHistory = options.pushHistory !== false;
+  const fromPreviousList = !!options.fromPreviousList;
 
   if (pushHistory && detailsModal.style.display === 'block' && activeDetailsCase && activeDetailsCase !== caseNumber) {
-    detailsHistory.push(activeDetailsCase);
-  } else if (detailsModal.style.display !== 'block') {
+    detailsHistory.push({
+      caseNumber: activeDetailsCase,
+      reopenPreviousList: fromPreviousList
+    });
+  } else if (pushHistory && detailsModal.style.display !== 'block') {
     detailsHistory = [];
   }
 
@@ -1065,6 +1077,7 @@ document.querySelectorAll('.view-details-btn').forEach(btn => {
       AUDIO_BY_CASE[caseNumber] = audioOverride;
     }
     detailsHistory = [];
+    pendingDetailsFromLists = [];
     activeDetailsCase = null;
     openCaseDetails(caseNumber);
   });
@@ -1072,8 +1085,18 @@ document.querySelectorAll('.view-details-btn').forEach(btn => {
 
 function hideDetailsModal() {
   if (detailsHistory.length > 0) {
-    const previousCase = detailsHistory.pop();
-    openCaseDetails(previousCase, { pushHistory: false });
+    const previousContext = detailsHistory.pop();
+    if (previousContext && previousContext.reopenPreviousList) {
+      pendingDetailsFromLists.push(previousContext.caseNumber);
+      detailsModal.style.display = 'none';
+      detailsModal.style.zIndex = '';
+      activeDetailsCase = null;
+      if (previousCasesModal.style.display !== 'block') {
+        previousCasesModal.style.display = 'block';
+      }
+    } else if (previousContext) {
+      openCaseDetails(previousContext.caseNumber, { pushHistory: false });
+    }
   } else {
     detailsModal.style.display = 'none';
     detailsModal.style.zIndex = '';
