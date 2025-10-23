@@ -8,6 +8,48 @@ $connectionOptions = [
 $conn = sqlsrv_connect($serverName, $connectionOptions);
 if(!$conn) { die(print_r(sqlsrv_errors(), true)); }
 
+function fetchServerDateContext($conn) {
+    $fallbackTzName = @date_default_timezone_get();
+    try {
+        $fallbackTz = new DateTimeZone($fallbackTzName ?: 'UTC');
+    } catch (Exception $e) {
+        $fallbackTz = new DateTimeZone('UTC');
+    }
+    $fallbackNow = new DateTime('now', $fallbackTz);
+
+    if (!$conn) {
+        return [$fallbackNow, $fallbackTz];
+    }
+
+    $stmt = @sqlsrv_query($conn, "SELECT SYSDATETIMEOFFSET() AS current_dt");
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        if ($row && isset($row['current_dt'])) {
+            $current = $row['current_dt'];
+            try {
+                if ($current instanceof DateTimeInterface) {
+                    $formatted = $current->format('Y-m-d H:i:s.uP');
+                    $serverNow = new DateTime($formatted);
+                } elseif (is_string($current) && $current !== '') {
+                    $serverNow = new DateTime($current);
+                } else {
+                    $serverNow = null;
+                }
+                if ($serverNow instanceof DateTimeInterface) {
+                    return [$serverNow, $serverNow->getTimezone()];
+                }
+            } catch (Exception $e) {
+                // fallback below
+            }
+        }
+    }
+
+    return [$fallbackNow, $fallbackTz];
+}
+
+list($serverNowObj, $serverTimezone) = fetchServerDateContext($conn);
+
 if (!function_exists('grantUploadAccess')) {
     function grantUploadAccess($path, $isDirectory = false) {
         static $account = null;
@@ -98,13 +140,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
     }
 
     if(!empty($newNote)) {
-        $tzName = @date_default_timezone_get();
-        try {
-            $noteTz = new DateTimeZone($tzName ?: 'UTC');
-        } catch (Exception $e) {
-            $noteTz = new DateTimeZone('UTC');
-        }
-        $timestamp = (new DateTime('now', $noteTz))->format("Y-m-d H:i:s");
+        $timestamp = (new DateTime('now', $serverTimezone))->format("Y-m-d H:i:s");
         $noteWithTime = "<b style='color:blue;'>[".$timestamp."]</b> ".$newNote;
 
         $params = [

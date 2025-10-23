@@ -10,6 +10,46 @@ $connectionOptions = array(
 $conn = sqlsrv_connect($serverName, $connectionOptions);
 if(!$conn) { die(print_r(sqlsrv_errors(), true)); }
 
+function fetchServerDateContext($conn) {
+    $fallbackTzName = @date_default_timezone_get();
+    try {
+        $fallbackTz = new DateTimeZone($fallbackTzName ?: 'UTC');
+    } catch (Exception $e) {
+        $fallbackTz = new DateTimeZone('UTC');
+    }
+    $fallbackNow = new DateTime('now', $fallbackTz);
+
+    if (!$conn) {
+        return [$fallbackNow, $fallbackTz];
+    }
+
+    $stmt = @sqlsrv_query($conn, "SELECT SYSDATETIMEOFFSET() AS current_dt");
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        if ($row && isset($row['current_dt'])) {
+            $current = $row['current_dt'];
+            try {
+                if ($current instanceof DateTimeInterface) {
+                    $formatted = $current->format('Y-m-d H:i:s.uP');
+                    $serverNow = new DateTime($formatted);
+                } elseif (is_string($current) && $current !== '') {
+                    $serverNow = new DateTime($current);
+                } else {
+                    $serverNow = null;
+                }
+                if ($serverNow instanceof DateTimeInterface) {
+                    return [$serverNow, $serverNow->getTimezone()];
+                }
+            } catch (Exception $e) {
+                // fallback below
+            }
+        }
+    }
+
+    return [$fallbackNow, $fallbackTz];
+}
+
 // Close case (Open or Escalated)
 if (isset($_GET['close_case'])) {
     $close_case = $_GET['close_case'];
@@ -21,8 +61,8 @@ if (isset($_GET['close_case'])) {
 
 $currentPage = basename($_SERVER['PHP_SELF']);
 
-$serverTimezone = new DateTimeZone(date_default_timezone_get());
-$now = new DateTime("now", $serverTimezone);
+list($serverNowObj, $serverTimezone) = fetchServerDateContext($conn);
+$now = clone $serverNowObj;
 
 // Fetch all rows for pie + pagination
 $sqlAll = "SELECT CONVERT(VARCHAR(19), date_time, 120) AS date_time_str, * 

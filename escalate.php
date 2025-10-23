@@ -74,31 +74,29 @@ curl_close($ch);
 
 $sessionId = null;
 $statusToken = null;
-$ok = false;
+
 if (!$err && $httpInfo['http_code'] == 200) {
-  $xml = @simplexml_load_string($response);
-  if ($xml !== false) {
+  if (preg_match('/<(?:[A-Za-z0-9_]+:)?RequestID[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?RequestID>/s', $response, $m)) {
+    $sessionId = trim($m[1]);
+  }
+  if (preg_match('/<(?:[A-Za-z0-9_]+:)?Status[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?Status>/s', $response, $mStatus)) {
+    $statusToken = trim($mStatus[1]);
+  }
+
+  if (($sessionId === null || $sessionId === '') && ($xml = @simplexml_load_string($response))) {
     $matches = $xml->xpath('//*[local-name()="RequestID"]');
     if ($matches && isset($matches[0])) {
       $sessionId = trim((string)$matches[0]);
-      $ok = ($sessionId !== '');
     }
-    $statusNodes = $xml->xpath('//*[local-name()="Status"]');
-    if ($statusNodes && isset($statusNodes[0])) {
-      $statusToken = trim((string)$statusNodes[0]);
-    }
-  }
-  if (!$ok) {
-    // Fallback to regex for unusual namespace prefixes
-    if (preg_match('/<(?:[A-Za-z0-9_]+:)?RequestID[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?RequestID>/s', $response, $m)) {
-      $sessionId = trim($m[1]);
-      $ok = ($sessionId !== '');
+    if ($statusToken === null) {
+      $statusNodes = $xml->xpath('//*[local-name()="Status"]');
+      if ($statusNodes && isset($statusNodes[0])) {
+        $statusToken = trim((string)$statusNodes[0]);
+      }
     }
   }
-  if ($statusToken === null && preg_match('/<(?:[A-Za-z0-9_]+:)?Status[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?Status>/s', $response, $mStatus)) {
-    $statusToken = trim($mStatus[1]);
-  }
-  if ($ok) {
+
+  if (is_string($sessionId) && $sessionId !== '') {
     if ($statusToken) {
       $sessionId = preg_replace('/' . preg_quote($statusToken, '/') . '\s*$/i', '', $sessionId);
     }
@@ -110,11 +108,9 @@ if (!$err && $httpInfo['http_code'] == 200) {
       $sessionId = '';
     }
   }
-  if ($ok) {
-    $sessionId = trim($sessionId);
-    $ok = ($sessionId !== '');
-  }
 }
+
+$ok = is_string($sessionId) && $sessionId !== '';
 
 if ($ok) {
   // Store session id + mark Escalated
