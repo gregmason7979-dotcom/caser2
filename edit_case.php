@@ -8,6 +8,97 @@ $connectionOptions = [
 $conn = sqlsrv_connect($serverName, $connectionOptions);
 if(!$conn) { die(print_r(sqlsrv_errors(), true)); }
 
+function fetchServerDateContext($conn) {
+    $fallbackTzName = @date_default_timezone_get();
+    try {
+        $fallbackTz = new DateTimeZone($fallbackTzName ?: 'UTC');
+    } catch (Exception $e) {
+        $fallbackTz = new DateTimeZone('UTC');
+    }
+    $fallbackNow = new DateTime('now', $fallbackTz);
+
+    if (!$conn) {
+        return [$fallbackNow, $fallbackTz];
+    }
+
+    $stmt = @sqlsrv_query($conn, "SELECT SYSDATETIMEOFFSET() AS current_dt");
+    if ($stmt) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        if ($row && isset($row['current_dt'])) {
+            $current = $row['current_dt'];
+            try {
+                if ($current instanceof DateTimeInterface) {
+                    $formatted = $current->format('Y-m-d H:i:s.uP');
+                    $serverNow = new DateTime($formatted);
+                } elseif (is_string($current) && $current !== '') {
+                    $serverNow = new DateTime($current);
+                } else {
+                    $serverNow = null;
+                }
+                if ($serverNow instanceof DateTimeInterface) {
+                    return [$serverNow, $serverNow->getTimezone()];
+                }
+            } catch (Exception $e) {
+                // fallback below
+            }
+        }
+    }
+
+    return [$fallbackNow, $fallbackTz];
+}
+
+list($serverNowObj, $serverTimezone) = fetchServerDateContext($conn);
+
+if (!function_exists('grantUploadAccess')) {
+    function grantUploadAccess($path, $isDirectory = false) {
+        static $account = null;
+        static $owner = null;
+        if (!is_string($path) || $path === '') {
+            return;
+        }
+        if ($account === null) {
+            $account = getenv('CASE_UPLOADS_ACCOUNT');
+            if ($account === false) {
+                $account = '';
+            }
+            $account = trim($account);
+            if ($account === '') {
+                $account = 'Users';
+            }
+        }
+        if ($owner === null) {
+            $owner = getenv('CASE_UPLOADS_OWNER');
+            $owner = $owner === false ? '' : trim($owner);
+        }
+        if (!function_exists('exec') || stripos(PHP_OS_FAMILY, 'Windows') === false) {
+            return;
+        }
+        if (!file_exists($path)) {
+            return;
+        }
+        if ($account !== '') {
+            $permission = $isDirectory ? '(OI)(CI)RX' : '(R)';
+            $command = 'icacls ' . escapeshellarg($path) . ' /grant ' . escapeshellarg($account) . ':' . $permission;
+            $output = [];
+            $status = 0;
+            @exec($command . ' 2>&1', $output, $status);
+            if ($status !== 0 && !empty($output)) {
+                error_log('icacls failed for ' . $path . ': ' . implode('; ', $output));
+            }
+        }
+        if ($owner !== '') {
+            $setOwner = 'icacls ' . escapeshellarg($path) . ' /setowner ' . escapeshellarg($owner);
+            $ownerOutput = [];
+            $ownerStatus = 0;
+            @exec($setOwner . ' 2>&1', $ownerOutput, $ownerStatus);
+            if ($ownerStatus !== 0 && !empty($ownerOutput)) {
+                error_log('icacls setowner failed for ' . $path . ': ' . implode('; ', $ownerOutput));
+            }
+        }
+    }
+}
+
 $case_number = $_GET['id'] ?? '';
 if(!$case_number) { die("No case number provided."); }
 
@@ -23,7 +114,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
     $attachmentLinks = [];
     if (!empty($_FILES['attachments']) && is_array($_FILES['attachments']['name'])) {
       $baseDir = __DIR__ . '/uploads/' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $case_number);
-      if (!is_dir($baseDir)) { @mkdir($baseDir, 0777, true); }
+      if (!is_dir($baseDir)) {
+        @mkdir($baseDir, 0777, true);
+      }
+      grantUploadAccess($baseDir, true);
       for ($i=0; $i<count($_FILES['attachments']['name']); $i++) {
         if ($_FILES['attachments']['error'][$i] === UPLOAD_ERR_OK) {
           $tmp  = $_FILES['attachments']['tmp_name'][$i];
@@ -32,8 +126,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
           $safe = $stamp . '_' . preg_replace('/[^\w.\-]/', '_', $name);
           $dest = $baseDir . '/' . $safe;
           if (move_uploaded_file($tmp, $dest)) {
+            grantUploadAccess($dest);
             $url = 'uploads/' . rawurlencode($case_number) . '/' . rawurlencode($safe);
-            $attachmentLinks[] = "<a href=\"$url\" target=\"_blank\">$name</a>";
+            $displayName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+            $href = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+            $attachmentLinks[] = '<a href="' . $href . '" class="attachment-link" data-filename="' . $displayName . '">' . $displayName . '</a>';
           }
         }
       }
@@ -43,8 +140,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
     }
 
     if(!empty($newNote)) {
-        date_default_timezone_set('Australia/Sydney');
-        $timestamp = date("Y-m-d H:i:s");
+        $timestamp = (new DateTime('now', $serverTimezone))->format("Y-m-d H:i:s");
         $noteWithTime = "<b style='color:blue;'>[".$timestamp."]</b> ".$newNote;
 
         $params = [
