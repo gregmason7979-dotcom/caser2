@@ -8,47 +8,19 @@ $connectionOptions = [
 $conn = sqlsrv_connect($serverName, $connectionOptions);
 if ($conn === false) { die(print_r(sqlsrv_errors(), true)); }
 
-function fetchServerDateContext($conn) {
-  $fallbackTzName = @date_default_timezone_get();
+function fetchServerDateContext() {
+  $tzName = @date_default_timezone_get();
   try {
-    $fallbackTz = new DateTimeZone($fallbackTzName ?: 'UTC');
+    $tz = new DateTimeZone($tzName ?: 'UTC');
   } catch (Exception $e) {
-    $fallbackTz = new DateTimeZone('UTC');
-  }
-  $fallbackNow = new DateTime('now', $fallbackTz);
-
-  if (!$conn) {
-    return [$fallbackNow, $fallbackTz];
+    $tz = new DateTimeZone('UTC');
   }
 
-  $stmt = @sqlsrv_query($conn, "SELECT SYSDATETIMEOFFSET() AS current_dt");
-  if ($stmt) {
-    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-    sqlsrv_free_stmt($stmt);
-    if ($row && isset($row['current_dt'])) {
-      $current = $row['current_dt'];
-      try {
-        if ($current instanceof DateTimeInterface) {
-          $formatted = $current->format('Y-m-d H:i:s.uP');
-          $serverNow = new DateTime($formatted);
-        } elseif (is_string($current) && $current !== '') {
-          $serverNow = new DateTime($current);
-        } else {
-          $serverNow = null;
-        }
-        if ($serverNow instanceof DateTimeInterface) {
-          return [$serverNow, $serverNow->getTimezone()];
-        }
-      } catch (Exception $e) {
-        // fall through to fallback
-      }
-    }
-  }
-
-  return [$fallbackNow, $fallbackTz];
+  $now = new DateTimeImmutable('now', $tz);
+  return [$now, $tz];
 }
 
-list($serverNow, $serverTimezone) = fetchServerDateContext($conn);
+list($serverNow, $serverTimezone) = fetchServerDateContext();
 
 function grantUploadAccess($path, $isDirectory = false) {
   static $account = null;
@@ -123,7 +95,7 @@ if ($chk && sqlsrv_fetch($chk)) {
 // Determine server-side timestamp for insert
 $date_time_sql = null;
 if (!empty($date_time)) {
-  $dt = DateTime::createFromFormat('Y-m-d\TH:i', $date_time, $serverTimezone);
+  $dt = DateTimeImmutable::createFromFormat('Y-m-d\TH:i', $date_time, $serverTimezone);
   if ($dt instanceof DateTimeInterface) {
     $date_time_sql = $dt->format('Y-m-d H:i:s');
   }

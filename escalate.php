@@ -13,6 +13,30 @@ if (!$conn) { die(print_r(sqlsrv_errors(), true)); }
 $case_number = isset($_GET['id']) ? $_GET['id'] : '';
 if (!$case_number) { die("No case number provided."); }
 
+function cleanSessionToken($value) {
+  if (!is_string($value)) {
+    return '';
+  }
+
+  $token = trim($value);
+  if ($token === '') {
+    return '';
+  }
+
+  $token = preg_replace('/\bSuccess\b/i', '', $token);
+  $token = trim($token);
+
+  if (preg_match('/^[A-Za-z0-9\-]+/', $token, $m)) {
+    return $m[0];
+  }
+
+  if (preg_match('/[A-Za-z0-9\-]+/', $token, $m)) {
+    return $m[0];
+  }
+
+  return '';
+}
+
 // Fetch case (for IVR/labels)
 $sql  = "SELECT TOP 1 * FROM mwcsp_caser WHERE case_number = ?";
 $stmt = sqlsrv_query($conn, $sql, [$case_number]);
@@ -74,19 +98,30 @@ curl_close($ch);
 
 $sessionId = null;
 $statusToken = null;
+$sessionCandidates = [];
+$httpSuccess = (!$err && isset($httpInfo['http_code']) && $httpInfo['http_code'] == 200);
 
-if (!$err && $httpInfo['http_code'] == 200) {
+if ($httpSuccess) {
   if (preg_match('/<(?:[A-Za-z0-9_]+:)?RequestID[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?RequestID>/s', $response, $m)) {
-    $sessionId = trim($m[1]);
+    $sessionCandidates[] = $m[1];
+  }
+  if (preg_match('/<(?:[A-Za-z0-9_]+:)?AddRequestResult[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?AddRequestResult>/s', $response, $mAdd)) {
+    $sessionCandidates[] = $mAdd[1];
   }
   if (preg_match('/<(?:[A-Za-z0-9_]+:)?Status[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?Status>/s', $response, $mStatus)) {
     $statusToken = trim($mStatus[1]);
   }
 
-  if (($sessionId === null || $sessionId === '') && ($xml = @simplexml_load_string($response))) {
-    $matches = $xml->xpath('//*[local-name()="RequestID"]');
-    if ($matches && isset($matches[0])) {
-      $sessionId = trim((string)$matches[0]);
+  if ($xml = @simplexml_load_string($response)) {
+    if (empty($sessionCandidates)) {
+      $xpathRequest = $xml->xpath('//*[local-name()="RequestID"]');
+      if ($xpathRequest && isset($xpathRequest[0])) {
+        $sessionCandidates[] = (string)$xpathRequest[0];
+      }
+      $xpathAdd = $xml->xpath('//*[local-name()="AddRequestResult"]');
+      if ($xpathAdd && isset($xpathAdd[0])) {
+        $sessionCandidates[] = (string)$xpathAdd[0];
+      }
     }
     if ($statusToken === null) {
       $statusNodes = $xml->xpath('//*[local-name()="Status"]');
@@ -96,32 +131,38 @@ if (!$err && $httpInfo['http_code'] == 200) {
     }
   }
 
-  if (is_string($sessionId) && $sessionId !== '') {
-    if ($statusToken) {
-      $sessionId = preg_replace('/' . preg_quote($statusToken, '/') . '\s*$/i', '', $sessionId);
-    }
-    $sessionId = str_ireplace('Success', '', $sessionId);
-    $sessionId = trim($sessionId);
-    if (preg_match('/^[A-Za-z0-9\-]+/', $sessionId, $mTrimmed)) {
-      $sessionId = $mTrimmed[0];
-    } else {
-      $sessionId = '';
+  foreach ($sessionCandidates as $candidate) {
+    $cleaned = cleanSessionToken($candidate);
+    if ($cleaned !== '') {
+      $sessionId = $cleaned;
+      break;
     }
   }
 }
 
-$ok = is_string($sessionId) && $sessionId !== '';
+$hasSessionId = is_string($sessionId) && $sessionId !== '';
+$statusIsSuccess = is_string($statusToken) && stripos($statusToken, 'success') !== false;
+$soapSucceeded = $httpSuccess && ($hasSessionId || $statusIsSuccess);
 
-if ($ok) {
-  // Store session id + mark Escalated
-  sqlsrv_query(
-    $conn,
-    "UPDATE mwcsp_caser SET escalation_session_id=?, status='Escalated' WHERE case_number=?",
-    [$sessionId, $case_number]
-  );
-  $msg = "✅ Escalated. Session ID: ".htmlspecialchars($sessionId);
+if ($soapSucceeded) {
+  if ($hasSessionId) {
+    sqlsrv_query(
+      $conn,
+      "UPDATE mwcsp_caser SET escalation_session_id=?, status='Escalated' WHERE case_number=?",
+      [$sessionId, $case_number]
+    );
+    $msg = "✅ Escalated. Session ID: ".htmlspecialchars($sessionId);
+  } else {
+    sqlsrv_query(
+      $conn,
+      "UPDATE mwcsp_caser SET status='Escalated' WHERE case_number=?",
+      [$case_number]
+    );
+    $msg = "✅ Escalated.";
+  }
 } else {
-  $msg = "❌ Escalation failed. ".htmlspecialchars($err ?: ("HTTP ".$httpInfo['http_code']));
+  $statusFragment = $statusToken ? (' Status: '.$statusToken) : '';
+  $msg = "❌ Escalation failed. ".htmlspecialchars($err ?: ('HTTP '.$httpInfo['http_code'].$statusFragment));
 }
 
 sqlsrv_close($conn);

@@ -8,44 +8,16 @@ $connectionOptions = [
 $conn = sqlsrv_connect($serverName, $connectionOptions);
 if(!$conn){ die(print_r(sqlsrv_errors(), true)); }
 
-function fetchServerDateContext($conn) {
-    $fallbackTzName = @date_default_timezone_get();
+function fetchServerDateContext() {
+    $tzName = @date_default_timezone_get();
     try {
-        $fallbackTz = new DateTimeZone($fallbackTzName ?: 'UTC');
+        $tz = new DateTimeZone($tzName ?: 'UTC');
     } catch (Exception $e) {
-        $fallbackTz = new DateTimeZone('UTC');
-    }
-    $fallbackNow = new DateTime('now', $fallbackTz);
-
-    if (!$conn) {
-        return [$fallbackNow, $fallbackTz];
+        $tz = new DateTimeZone('UTC');
     }
 
-    $stmt = @sqlsrv_query($conn, "SELECT SYSDATETIMEOFFSET() AS current_dt");
-    if ($stmt) {
-        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        sqlsrv_free_stmt($stmt);
-        if ($row && isset($row['current_dt'])) {
-            $current = $row['current_dt'];
-            try {
-                if ($current instanceof DateTimeInterface) {
-                    $formatted = $current->format('Y-m-d H:i:s.uP');
-                    $serverNow = new DateTime($formatted);
-                } elseif (is_string($current) && $current !== '') {
-                    $serverNow = new DateTime($current);
-                } else {
-                    $serverNow = null;
-                }
-                if ($serverNow instanceof DateTimeInterface) {
-                    return [$serverNow, $serverNow->getTimezone()];
-                }
-            } catch (Exception $e) {
-                // fallback below
-            }
-        }
-    }
-
-    return [$fallbackNow, $fallbackTz];
+    $now = new DateTimeImmutable('now', $tz);
+    return [$now, $tz];
 }
 
 $currentPage = basename($_SERVER['PHP_SELF']);
@@ -201,7 +173,7 @@ $audioByCaseJson = json_encode($audioByCase, $jsonOptions);
 if ($audioByCaseJson === false) { $audioByCaseJson = '{}'; }
 
 // for row colouring + pie ageing
-list($serverNowObj, $serverTimezone) = fetchServerDateContext($conn);
+list($serverNowObj, $serverTimezone) = fetchServerDateContext();
 $now = clone $serverNowObj;
 
 // ---- Compute mini-pie stats from current results ----
@@ -328,7 +300,7 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
 .highlight-blue   { background-color: #d9ecff !important; }  /* Escalated */
 
 /* Modals */
-.modal { display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);}
+.modal { display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); z-index: 3000;}
 #detailsModal { z-index: 2000; }
 #notesModal   { z-index: 3000; }
 
@@ -351,6 +323,7 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
 }
 .notes-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:10px; }
 #previewModal   { z-index: 3050; }
+#previousCasesModal { z-index: 3100; }
 .attachment-modal .modal-content {
   max-width: 900px;
   width: 90%;
@@ -675,138 +648,6 @@ window.openMapPopup = openMapPopup;
     <div class="attachment-actions">
       <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
       <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close preview">&times;</span>
-    <h3 id="previewTitle">Preview</h3>
-    <div class="attachment-body" id="previewBody"></div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close preview">&times;</span>
-    <h3 id="previewTitle">Preview</h3>
-    <div class="attachment-body" id="previewBody"></div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close preview">&times;</span>
-    <h3 id="previewTitle">Preview</h3>
-    <div class="attachment-body" id="previewBody"></div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close preview">&times;</span>
-    <h3 id="previewTitle">Preview</h3>
-    <div class="attachment-body" id="previewBody"></div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close preview">&times;</span>
-    <h3 id="previewTitle">Preview</h3>
-    <div class="attachment-body" id="previewBody"></div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close preview">&times;</span>
-    <h3 id="previewTitle">Preview</h3>
-    <div class="attachment-body" id="previewBody"></div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close preview">&times;</span>
-    <h3 id="previewTitle">Preview</h3>
-    <div class="attachment-body" id="previewBody"></div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close preview">&times;</span>
-    <h3 id="previewTitle">Preview</h3>
-    <div class="attachment-body" id="previewBody"></div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close preview">&times;</span>
-    <h3 id="previewTitle">Preview</h3>
-    <div class="attachment-body" id="previewBody"></div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
-    </div>
-  </div>
-</div>
-
-<!-- Attachment Modal -->
-<div id="attachmentModal" class="modal attachment-modal">
-  <div class="modal-content">
-    <span class="close" aria-label="Close attachment">&times;</span>
-    <h3 id="attachmentTitle">Attachment Preview</h3>
-    <div class="attachment-body">
-      <iframe id="attachmentFrame" title="Attachment preview"></iframe>
-    </div>
-    <div class="attachment-actions">
-      <a href="javascript:void(0);" class="btn" id="downloadAttachmentLink" target="_blank" rel="noopener">Open in New Tab</a>
-      <a href="javascript:void(0);" class="btn" id="closeAttachmentBtn">Close</a>
     </div>
   </div>
 </div>

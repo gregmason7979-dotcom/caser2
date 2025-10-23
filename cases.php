@@ -10,44 +10,16 @@ $connectionOptions = array(
 $conn = sqlsrv_connect($serverName, $connectionOptions);
 if(!$conn) { die(print_r(sqlsrv_errors(), true)); }
 
-function fetchServerDateContext($conn) {
-    $fallbackTzName = @date_default_timezone_get();
+function fetchServerDateContext() {
+    $tzName = @date_default_timezone_get();
     try {
-        $fallbackTz = new DateTimeZone($fallbackTzName ?: 'UTC');
+        $tz = new DateTimeZone($tzName ?: 'UTC');
     } catch (Exception $e) {
-        $fallbackTz = new DateTimeZone('UTC');
-    }
-    $fallbackNow = new DateTime('now', $fallbackTz);
-
-    if (!$conn) {
-        return [$fallbackNow, $fallbackTz];
+        $tz = new DateTimeZone('UTC');
     }
 
-    $stmt = @sqlsrv_query($conn, "SELECT SYSDATETIMEOFFSET() AS current_dt");
-    if ($stmt) {
-        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        sqlsrv_free_stmt($stmt);
-        if ($row && isset($row['current_dt'])) {
-            $current = $row['current_dt'];
-            try {
-                if ($current instanceof DateTimeInterface) {
-                    $formatted = $current->format('Y-m-d H:i:s.uP');
-                    $serverNow = new DateTime($formatted);
-                } elseif (is_string($current) && $current !== '') {
-                    $serverNow = new DateTime($current);
-                } else {
-                    $serverNow = null;
-                }
-                if ($serverNow instanceof DateTimeInterface) {
-                    return [$serverNow, $serverNow->getTimezone()];
-                }
-            } catch (Exception $e) {
-                // fallback below
-            }
-        }
-    }
-
-    return [$fallbackNow, $fallbackTz];
+    $now = new DateTimeImmutable('now', $tz);
+    return [$now, $tz];
 }
 
 // Close case (Open or Escalated)
@@ -61,7 +33,7 @@ if (isset($_GET['close_case'])) {
 
 $currentPage = basename($_SERVER['PHP_SELF']);
 
-list($serverNowObj, $serverTimezone) = fetchServerDateContext($conn);
+list($serverNowObj, $serverTimezone) = fetchServerDateContext();
 $now = clone $serverNowObj;
 
 // Fetch all rows for pie + pagination
@@ -340,7 +312,7 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
 .highlight-blue   { background-color: #d9ecff !important; }  /* Escalated */
 
 /* Modals */
-.modal { display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);}
+.modal { display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); z-index: 3000;}
 #detailsModal { z-index: 2000; }
 #notesModal   { z-index: 3000; }
 
@@ -378,6 +350,7 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
 }
 .btn:hover { background:#005bb5; }
 #previewModal   { z-index: 3050; }
+#previousCasesModal { z-index: 3100; }
 .attachment-modal .modal-content {
   max-width: 900px;
   width: 90%;
