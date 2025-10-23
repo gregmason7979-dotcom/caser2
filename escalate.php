@@ -73,15 +73,46 @@ $err      = curl_error($ch);
 curl_close($ch);
 
 $sessionId = null;
+$statusToken = null;
 $ok = false;
 if (!$err && $httpInfo['http_code'] == 200) {
-  // Try common result tags
-  if (preg_match('/<AddRequestResult[^>]*>(.*?)<\/AddRequestResult>/s', $response, $m)) {
-    $sessionId = trim(strip_tags($m[1]));
-    $ok = !empty($sessionId);
-  } elseif (preg_match('/<RequestID[^>]*>(.*?)<\/RequestID>/s', $response, $m2)) {
-    $sessionId = trim(strip_tags($m2[1]));
-    $ok = !empty($sessionId);
+  $xml = @simplexml_load_string($response);
+  if ($xml !== false) {
+    $matches = $xml->xpath('//*[local-name()="RequestID"]');
+    if ($matches && isset($matches[0])) {
+      $sessionId = trim((string)$matches[0]);
+      $ok = ($sessionId !== '');
+    }
+    $statusNodes = $xml->xpath('//*[local-name()="Status"]');
+    if ($statusNodes && isset($statusNodes[0])) {
+      $statusToken = trim((string)$statusNodes[0]);
+    }
+  }
+  if (!$ok) {
+    // Fallback to regex for unusual namespace prefixes
+    if (preg_match('/<(?:[A-Za-z0-9_]+:)?RequestID[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?RequestID>/s', $response, $m)) {
+      $sessionId = trim($m[1]);
+      $ok = ($sessionId !== '');
+    }
+  }
+  if ($statusToken === null && preg_match('/<(?:[A-Za-z0-9_]+:)?Status[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?Status>/s', $response, $mStatus)) {
+    $statusToken = trim($mStatus[1]);
+  }
+  if ($ok) {
+    if ($statusToken) {
+      $sessionId = preg_replace('/' . preg_quote($statusToken, '/') . '\s*$/i', '', $sessionId);
+    }
+    $sessionId = str_ireplace('Success', '', $sessionId);
+    $sessionId = trim($sessionId);
+    if (preg_match('/^[A-Za-z0-9\-]+/', $sessionId, $mTrimmed)) {
+      $sessionId = $mTrimmed[0];
+    } else {
+      $sessionId = '';
+    }
+  }
+  if ($ok) {
+    $sessionId = trim($sessionId);
+    $ok = ($sessionId !== '');
   }
 }
 
