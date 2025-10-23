@@ -591,6 +591,19 @@ window.openMapPopup = openMapPopup;
   </div>
 </div>
 
+<!-- Preview Modal -->
+<div id="previewModal" class="modal attachment-modal">
+  <div class="modal-content">
+    <span class="close" aria-label="Close preview">&times;</span>
+    <h3 id="previewTitle">Preview</h3>
+    <div class="attachment-body" id="previewBody"></div>
+    <div class="attachment-actions">
+      <a href="javascript:void(0);" class="btn" id="openPreviewExternal" target="_blank" rel="noopener">Open in New Tab</a>
+      <a href="javascript:void(0);" class="btn" id="closePreviewBtn">Close</a>
+    </div>
+  </div>
+</div>
+
 <!-- Attachment Modal -->
 <div id="attachmentModal" class="modal attachment-modal">
   <div class="modal-content">
@@ -822,6 +835,20 @@ document.querySelectorAll(".view-details-btn").forEach(btn => {
       nbtn.addEventListener("click", () => {
         modalNotes.innerHTML = nbtn.getAttribute("data-notes") || '';
         notesModal.style.display = "block";
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.audio-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const audioUrl = link.getAttribute('data-audio') || '';
+        openPreviewModal({ url: audioUrl, type: 'audio', title: 'Audio Preview', externalUrl: audioUrl });
+      });
+    });
+
+    detailsTableBody.querySelectorAll('.map-preview-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const addr = link.getAttribute('data-address') || '';
+        openMapPopup(addr);
       });
     });
 
