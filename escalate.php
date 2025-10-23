@@ -99,9 +99,13 @@ curl_close($ch);
 $sessionId = null;
 $statusToken = null;
 $sessionCandidates = [];
+$openMediaId = null;
 $httpSuccess = (!$err && isset($httpInfo['http_code']) && $httpInfo['http_code'] == 200);
 
 if ($httpSuccess) {
+  if (preg_match('/<(?:[A-Za-z0-9_]+:)?OpenMediaID[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?OpenMediaID>/s', $response, $mOpen)) {
+    $openMediaId = cleanSessionToken($mOpen[1]);
+  }
   if (preg_match('/<(?:[A-Za-z0-9_]+:)?RequestID[^>]*>(.*?)<\/(?:[A-Za-z0-9_]+:)?RequestID>/s', $response, $m)) {
     $sessionCandidates[] = $m[1];
   }
@@ -113,6 +117,13 @@ if ($httpSuccess) {
   }
 
   if ($xml = @simplexml_load_string($response)) {
+    if ($openMediaId === null) {
+      $xpathOpen = $xml->xpath('//*[local-name()="OpenMediaID"]');
+      if ($xpathOpen && isset($xpathOpen[0])) {
+        $openMediaId = cleanSessionToken((string)$xpathOpen[0]);
+      }
+    }
+
     if (empty($sessionCandidates)) {
       $xpathRequest = $xml->xpath('//*[local-name()="RequestID"]');
       if ($xpathRequest && isset($xpathRequest[0])) {
@@ -131,11 +142,17 @@ if ($httpSuccess) {
     }
   }
 
-  foreach ($sessionCandidates as $candidate) {
-    $cleaned = cleanSessionToken($candidate);
-    if ($cleaned !== '') {
-      $sessionId = $cleaned;
-      break;
+  if ($openMediaId !== null && $openMediaId !== '') {
+    $sessionId = $openMediaId;
+  }
+
+  if ($sessionId === null || $sessionId === '') {
+    foreach ($sessionCandidates as $candidate) {
+      $cleaned = cleanSessionToken($candidate);
+      if ($cleaned !== '') {
+        $sessionId = $cleaned;
+        break;
+      }
     }
   }
 }

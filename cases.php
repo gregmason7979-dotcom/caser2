@@ -871,6 +871,9 @@ const previousCasesBody  = document.getElementById("previousCasesBody");
 const previousCasesCloseIcon = previousCasesModal.querySelector(".close");
 const closePreviousCasesBtn = document.getElementById("closePreviousCasesBtn");
 
+let detailsHistory = [];
+let activeDetailsCase = null;
+
 const htmlEscape = (value) => {
   return value === null || value === undefined
     ? ''
@@ -903,6 +906,7 @@ function addRow(label, valueHtml) {
 
 function closePreviousCasesModal() {
   previousCasesModal.style.display = "none";
+  detailsModal.style.zIndex = '';
 }
 
 function openPreviousCasesList(phone, currentCaseNumber) {
@@ -947,17 +951,25 @@ function openPreviousCasesList(phone, currentCaseNumber) {
   previousCasesBody.querySelectorAll('.history-view-btn').forEach(link => {
     link.addEventListener('click', () => {
       const caseNum = link.getAttribute('data-case');
-      closePreviousCasesModal();
-      openCaseDetails(caseNum);
+      openCaseDetails(caseNum, { fromPreviousList: true });
     });
   });
 }
 
-function openCaseDetails(caseNumber) {
+function openCaseDetails(caseNumber, options = {}) {
   if (!caseNumber || !CASES_BY_NUMBER || !CASES_BY_NUMBER[caseNumber]) {
     return;
   }
 
+  const pushHistory = options.pushHistory !== false;
+
+  if (pushHistory && detailsModal.style.display === 'block' && activeDetailsCase && activeDetailsCase !== caseNumber) {
+    detailsHistory.push(activeDetailsCase);
+  } else if (detailsModal.style.display !== 'block') {
+    detailsHistory = [];
+  }
+
+  activeDetailsCase = caseNumber;
   const data = CASES_BY_NUMBER[caseNumber];
 
   detailsTableBody.innerHTML = '';
@@ -1035,6 +1047,13 @@ function openCaseDetails(caseNumber) {
     });
   });
 
+  if (previousCasesModal.style.display === 'block') {
+    const prevZ = parseInt(window.getComputedStyle(previousCasesModal).zIndex || '3100', 10);
+    detailsModal.style.zIndex = prevZ + 10;
+  } else {
+    detailsModal.style.zIndex = '';
+  }
+
   detailsModal.style.display = 'block';
 }
 
@@ -1045,19 +1064,32 @@ document.querySelectorAll('.view-details-btn').forEach(btn => {
     if (caseNumber && audioOverride && !AUDIO_BY_CASE[caseNumber]) {
       AUDIO_BY_CASE[caseNumber] = audioOverride;
     }
+    detailsHistory = [];
+    activeDetailsCase = null;
     openCaseDetails(caseNumber);
   });
 });
 
-detailsCloseIcon.onclick = () => { detailsModal.style.display = 'none'; };
-closeDetailsBtn.onclick  = () => { detailsModal.style.display = 'none'; };
+function hideDetailsModal() {
+  if (detailsHistory.length > 0) {
+    const previousCase = detailsHistory.pop();
+    openCaseDetails(previousCase, { pushHistory: false });
+  } else {
+    detailsModal.style.display = 'none';
+    detailsModal.style.zIndex = '';
+    activeDetailsCase = null;
+  }
+}
+
+detailsCloseIcon.onclick = hideDetailsModal;
+closeDetailsBtn.onclick  = hideDetailsModal;
 previousCasesCloseIcon.onclick = closePreviousCasesModal;
 closePreviousCasesBtn.onclick  = closePreviousCasesModal;
 
 // Close modals when clicking outside
 window.onclick = e => {
   if(e.target == notesModal) notesModal.style.display = "none";
-  if(e.target == detailsModal) detailsModal.style.display = "none";
+  if(e.target == detailsModal) hideDetailsModal();
   if(e.target == previousCasesModal) closePreviousCasesModal();
   if(e.target == previewModal) closePreviewModal();
 };
@@ -1066,7 +1098,7 @@ window.onclick = e => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     notesModal.style.display = "none";
-    detailsModal.style.display = "none";
+    hideDetailsModal();
     closePreviousCasesModal();
     closePreviewModal();
   }
