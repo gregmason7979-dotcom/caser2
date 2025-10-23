@@ -55,6 +55,100 @@ function grantUploadAccess($path, $isDirectory = false) {
   }
 }
 
+function grantUploadAccess($path, $isDirectory = false) {
+  static $account = null;
+  static $owner = null;
+  if (!is_string($path) || $path === '') {
+    return;
+  }
+  if ($account === null) {
+    $account = getenv('CASE_UPLOADS_ACCOUNT');
+    if ($account === false) {
+      $account = '';
+    }
+    $account = trim($account);
+    if ($account === '') {
+      $account = 'Users';
+    }
+  }
+  if ($owner === null) {
+    $owner = getenv('CASE_UPLOADS_OWNER');
+    $owner = $owner === false ? '' : trim($owner);
+  }
+  if (!function_exists('exec') || stripos(PHP_OS_FAMILY, 'Windows') === false) {
+    return;
+  }
+  if (!file_exists($path)) {
+    return;
+  }
+  if ($account !== '') {
+    $permission = $isDirectory ? '(OI)(CI)RX' : '(R)';
+    $command = 'icacls ' . escapeshellarg($path) . ' /grant ' . escapeshellarg($account) . ':' . $permission;
+    $output = [];
+    $status = 0;
+    @exec($command . ' 2>&1', $output, $status);
+    if ($status !== 0 && !empty($output)) {
+      error_log('icacls failed for ' . $path . ': ' . implode('; ', $output));
+    }
+  }
+  if ($owner !== '') {
+    $setOwner = 'icacls ' . escapeshellarg($path) . ' /setowner ' . escapeshellarg($owner);
+    $ownerOutput = [];
+    $ownerStatus = 0;
+    @exec($setOwner . ' 2>&1', $ownerOutput, $ownerStatus);
+    if ($ownerStatus !== 0 && !empty($ownerOutput)) {
+      error_log('icacls setowner failed for ' . $path . ': ' . implode('; ', $ownerOutput));
+    }
+  }
+}
+
+function grantUploadAccess($path, $isDirectory = false) {
+  static $account = null;
+  static $owner = null;
+  if (!is_string($path) || $path === '') {
+    return;
+  }
+  if ($account === null) {
+    $account = getenv('CASE_UPLOADS_ACCOUNT');
+    if ($account === false) {
+      $account = '';
+    }
+    $account = trim($account);
+    if ($account === '') {
+      $account = 'Users';
+    }
+  }
+  if ($owner === null) {
+    $owner = getenv('CASE_UPLOADS_OWNER');
+    $owner = $owner === false ? '' : trim($owner);
+  }
+  if (!function_exists('exec') || stripos(PHP_OS_FAMILY, 'Windows') === false) {
+    return;
+  }
+  if (!file_exists($path)) {
+    return;
+  }
+  if ($account !== '') {
+    $permission = $isDirectory ? '(OI)(CI)RX' : '(R)';
+    $command = 'icacls ' . escapeshellarg($path) . ' /grant ' . escapeshellarg($account) . ':' . $permission;
+    $output = [];
+    $status = 0;
+    @exec($command . ' 2>&1', $output, $status);
+    if ($status !== 0 && !empty($output)) {
+      error_log('icacls failed for ' . $path . ': ' . implode('; ', $output));
+    }
+  }
+  if ($owner !== '') {
+    $setOwner = 'icacls ' . escapeshellarg($path) . ' /setowner ' . escapeshellarg($owner);
+    $ownerOutput = [];
+    $ownerStatus = 0;
+    @exec($setOwner . ' 2>&1', $ownerOutput, $ownerStatus);
+    if ($ownerStatus !== 0 && !empty($ownerOutput)) {
+      error_log('icacls setowner failed for ' . $path . ': ' . implode('; ', $ownerOutput));
+    }
+  }
+}
+
 $case_number      = $_POST['case_number'] ?? '';
 $date_time        = $_POST['date_time'] ?? '';
 $spn              = $_POST['spn'] ?? '';
@@ -78,25 +172,18 @@ if ($chk && sqlsrv_fetch($chk)) {
   die("A case with this Case Number already exists.");
 }
 
-// Determine server-side timestamp for insert
-$tzName = @date_default_timezone_get();
-try {
-  $serverTz = new DateTimeZone($tzName ?: 'UTC');
-} catch (Exception $e) {
-  $serverTz = new DateTimeZone('UTC');
-}
-
-$date_time_sql = null;
+// Fix datetime for SQL
+$tzSydney = new DateTimeZone('Australia/Sydney');
 if (!empty($date_time)) {
-  $dt = DateTime::createFromFormat('Y-m-d\TH:i', $date_time, $serverTz);
-  if ($dt instanceof DateTime) {
-    $date_time_sql = $dt->format('Y-m-d H:i:s');
+  try {
+    $dt = new DateTime($date_time, $tzSydney);
+  } catch (Exception $e) {
+    $dt = new DateTime('now', $tzSydney);
   }
+} else {
+  $dt = new DateTime('now', $tzSydney);
 }
-
-if ($date_time_sql === null) {
-  $date_time_sql = (new DateTime('now', $serverTz))->format('Y-m-d H:i:s');
-}
+$date_time_sql = $dt->format('Y-m-d H:i:s');
 
 // Handle attachments: save & append as links into notes
 $attachmentLinks = [];
