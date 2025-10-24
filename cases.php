@@ -836,11 +836,12 @@ window.closePreviewModal = closePreviewModal;
 // Bind any main-table notes-button if present (kept for compatibility)
 document.querySelectorAll(".view-notes-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    showNotesModal(btn.getAttribute("data-notes") || '');
+    modalNotes.innerHTML = btn.getAttribute("data-notes") || '';
+    notesModal.style.display = "block";
   });
 });
-closeNotesIcon.onclick = () => { hideNotesModal(); };
-closeNotesBtn.onclick  = () => { hideNotesModal(); };
+closeNotesIcon.onclick = () => { notesModal.style.display = "none"; };
+closeNotesBtn.onclick  = () => { notesModal.style.display = "none"; };
 closePreviewIcon.onclick = () => { closePreviewModal(); };
 closePreviewBtn.onclick  = () => { closePreviewModal(); };
 
@@ -870,56 +871,6 @@ const previousCasesBody  = document.getElementById("previousCasesBody");
 const previousCasesCloseIcon = previousCasesModal.querySelector(".close");
 const closePreviousCasesBtn = document.getElementById("closePreviousCasesBtn");
 
-const stackedModalOrder = [];
-const STACK_BASE_Z = 2000;
-const STACK_STEP_Z = 80;
-
-function showNotesModal(contentHtml) {
-  modalNotes.innerHTML = contentHtml || '';
-  const topZ = STACK_BASE_Z + (stackedModalOrder.length + 1) * STACK_STEP_Z;
-  notesModal.style.zIndex = String(topZ);
-  notesModal.style.display = 'block';
-}
-
-function hideNotesModal() {
-  notesModal.style.display = 'none';
-  notesModal.style.zIndex = '';
-}
-
-function syncStackedModalZ() {
-  stackedModalOrder.forEach((modal, index) => {
-    if (modal) {
-      modal.style.zIndex = String(STACK_BASE_Z + index * STACK_STEP_Z);
-    }
-  });
-}
-
-function showStackedModal(modal) {
-  if (!modal) return;
-  const existingIndex = stackedModalOrder.indexOf(modal);
-  if (existingIndex !== -1) {
-    stackedModalOrder.splice(existingIndex, 1);
-  }
-  stackedModalOrder.push(modal);
-  modal.style.display = 'block';
-  syncStackedModalZ();
-}
-
-function hideStackedModal(modal) {
-  if (!modal) return;
-  const existingIndex = stackedModalOrder.indexOf(modal);
-  if (existingIndex !== -1) {
-    stackedModalOrder.splice(existingIndex, 1);
-  }
-  modal.style.display = 'none';
-  modal.style.zIndex = '';
-  syncStackedModalZ();
-}
-
-function isStackedModalOpen(modal) {
-  return stackedModalOrder.indexOf(modal) !== -1;
-}
-
 let detailsHistory = [];
 let pendingDetailsFromLists = [];
 let activeDetailsCase = null;
@@ -940,10 +891,7 @@ const attrEscape = (value) => {
     ? ''
     : String(value)
         .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/"/g, '&quot;');
 };
 
 function addRow(label, valueHtml) {
@@ -958,7 +906,8 @@ function addRow(label, valueHtml) {
 }
 
 function closePreviousCasesModal() {
-  hideStackedModal(previousCasesModal);
+  previousCasesModal.style.display = "none";
+  detailsModal.style.zIndex = '';
 
   if (pendingDetailsFromLists.length > 0) {
     const caseToRestore = pendingDetailsFromLists.pop();
@@ -1005,7 +954,7 @@ function openPreviousCasesList(phone, currentCaseNumber) {
   tableHtml += '</tbody></table>';
 
   previousCasesBody.innerHTML = tableHtml;
-  showStackedModal(previousCasesModal);
+  previousCasesModal.style.display = "block";
 
   previousCasesBody.querySelectorAll('.history-view-btn').forEach(link => {
     link.addEventListener('click', () => {
@@ -1023,12 +972,12 @@ function openCaseDetails(caseNumber, options = {}) {
   const pushHistory = options.pushHistory !== false;
   const fromPreviousList = !!options.fromPreviousList;
 
-  if (pushHistory && isStackedModalOpen(detailsModal) && activeDetailsCase && activeDetailsCase !== caseNumber) {
+  if (pushHistory && detailsModal.style.display === 'block' && activeDetailsCase && activeDetailsCase !== caseNumber) {
     detailsHistory.push({
       caseNumber: activeDetailsCase,
       reopenPreviousList: fromPreviousList
     });
-  } else if (pushHistory && !isStackedModalOpen(detailsModal)) {
+  } else if (pushHistory && detailsModal.style.display !== 'block') {
     detailsHistory = [];
   }
 
@@ -1083,7 +1032,8 @@ function openCaseDetails(caseNumber, options = {}) {
 
   detailsTableBody.querySelectorAll('.view-notes-btn').forEach(nbtn => {
     nbtn.addEventListener('click', () => {
-      showNotesModal(nbtn.getAttribute('data-notes') || '');
+      modalNotes.innerHTML = nbtn.getAttribute('data-notes') || '';
+      notesModal.style.display = 'block';
     });
   });
 
@@ -1109,7 +1059,14 @@ function openCaseDetails(caseNumber, options = {}) {
     });
   });
 
-  showStackedModal(detailsModal);
+  if (previousCasesModal.style.display === 'block') {
+    const prevZ = parseInt(window.getComputedStyle(previousCasesModal).zIndex || '3100', 10);
+    detailsModal.style.zIndex = prevZ + 10;
+  } else {
+    detailsModal.style.zIndex = '';
+  }
+
+  detailsModal.style.display = 'block';
 }
 
 document.querySelectorAll('.view-details-btn').forEach(btn => {
@@ -1131,14 +1088,18 @@ function hideDetailsModal() {
     const previousContext = detailsHistory.pop();
     if (previousContext && previousContext.reopenPreviousList) {
       pendingDetailsFromLists.push(previousContext.caseNumber);
-      hideStackedModal(detailsModal);
+      detailsModal.style.display = 'none';
+      detailsModal.style.zIndex = '';
       activeDetailsCase = null;
-      showStackedModal(previousCasesModal);
+      if (previousCasesModal.style.display !== 'block') {
+        previousCasesModal.style.display = 'block';
+      }
     } else if (previousContext) {
       openCaseDetails(previousContext.caseNumber, { pushHistory: false });
     }
   } else {
-    hideStackedModal(detailsModal);
+    detailsModal.style.display = 'none';
+    detailsModal.style.zIndex = '';
     activeDetailsCase = null;
   }
 }
@@ -1150,7 +1111,7 @@ closePreviousCasesBtn.onclick  = closePreviousCasesModal;
 
 // Close modals when clicking outside
 window.onclick = e => {
-  if(e.target == notesModal) hideNotesModal();
+  if(e.target == notesModal) notesModal.style.display = "none";
   if(e.target == detailsModal) hideDetailsModal();
   if(e.target == previousCasesModal) closePreviousCasesModal();
   if(e.target == previewModal) closePreviewModal();
@@ -1159,7 +1120,7 @@ window.onclick = e => {
 // Close modals with ESC key
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    hideNotesModal();
+    notesModal.style.display = "none";
     hideDetailsModal();
     closePreviousCasesModal();
     closePreviewModal();
