@@ -13,7 +13,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 // period filter
 $period = $_GET['period'] ?? '30d';
 $from = null; $label='';
-$tz = new DateTimeZone('Australia/Sydney');
+$tzName = @date_default_timezone_get();
+try {
+  $tz = new DateTimeZone($tzName ?: 'UTC');
+} catch (Exception $e) {
+  $tz = new DateTimeZone('UTC');
+}
 switch ($period) {
   case 'today': $from=(new DateTime('today',$tz))->format('Y-m-d 00:00:00'); $label='Today'; break;
   case '7d':    $from=(new DateTime('-7 days',$tz))->format('Y-m-d H:i:s'); $label='Last 7 days'; break;
