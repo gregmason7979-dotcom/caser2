@@ -1,11 +1,7 @@
 <?php
 // ---- Prefills from query string ----
-$case_number_prefill_raw = isset($_GET['case_number']) ? $_GET['case_number'] : '';
-$phone_number_prefill_raw = isset($_GET['phone_number']) ? $_GET['phone_number'] : '';
-$case_number_prefill = htmlspecialchars($case_number_prefill_raw);
-$phone_number_prefill = htmlspecialchars($phone_number_prefill_raw);
-$case_number_lookup = trim($case_number_prefill_raw);
-$phone_number_lookup = trim($phone_number_prefill_raw);
+$case_number_prefill = isset($_GET['case_number']) ? htmlspecialchars($_GET['case_number']) : '';
+$phone_number_prefill = isset($_GET['phone_number']) ? htmlspecialchars($_GET['phone_number']) : '';
 $currentPage = basename($_SERVER['PHP_SELF']);
 
 // DB connection + server time context
@@ -34,7 +30,7 @@ list($serverNowObj, $serverTimezone) = fetchServerDateContext();
 $now = $serverNowObj->format('Y-m-d\TH:i');
 
 // Optional related list only if phone provided and DB available
-if ($conn && $phone_number_lookup !== '') {
+if ($conn && $phone_number_prefill !== '') {
     // Fetch rows for same phone, excluding current case_number if provided
     $sql = "SELECT CONVERT(VARCHAR(19), date_time, 120) AS date_time_str, * 
             FROM mwcsp_caser
@@ -46,7 +42,7 @@ if ($conn && $phone_number_lookup !== '') {
                 WHEN LOWER(status)='escalated' THEN 2
                 ELSE 3
               END, date_time ASC";
-    $params = [ $phone_number_lookup, $case_number_lookup, $case_number_lookup ];
+    $params = [ $phone_number_prefill, $case_number_prefill, $case_number_prefill ];
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt) {
         while($r = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -233,8 +229,8 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
 
 /* Modals shared */
 .modal { display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); z-index: 3000;}
-.modal.modal-notes { z-index: 15000; }
 #detailsModal { z-index: 2000; }
+#notesModal   { z-index: 3000; }
 
 .modal-content { background-color: #fff; margin: auto; padding: 20px; border-radius: 10px; width: 80%; max-width: 640px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
 .modal-content h3 { margin: 0 0 10px 0; color:#0073e6; }
@@ -556,9 +552,9 @@ window.openMapPopup = openMapPopup;
 </form>
 </div>
 
-<?php if ($conn && $phone_number_lookup !== ''): ?>
+<?php if ($conn && $phone_number_prefill !== ''): ?>
   <div class="related-card">
-    <h2 class="related-title">Related Cases for Phone: <?php echo $phone_number_prefill !== '' ? $phone_number_prefill : htmlspecialchars($phone_number_lookup); ?></h2>
+    <h2 class="related-title">Related Cases for Phone: <?php echo htmlspecialchars($phone_number_prefill); ?></h2>
     <table>
       <thead>
         <tr>
@@ -640,7 +636,7 @@ window.openMapPopup = openMapPopup;
 <?php endif; ?>
 
 <!-- Notes Modal -->
-<div id="notesModal" class="modal modal-notes">
+<div id="notesModal" class="modal">
   <div class="modal-content">
     <span class="close" aria-label="Close notes">&times;</span>
     <h3>Case Notes</h3>
@@ -707,8 +703,8 @@ const closePreviewBtn = document.getElementById("closePreviewBtn");
 const closePreviewIcon = previewModal.querySelector(".close");
 
 // Close handlers
-closeNotesIcon.onclick = () => { hideNotesModal(); };
-closeNotesBtn.onclick  = () => { hideNotesModal(); };
+closeNotesIcon.onclick = () => { notesModal.style.display = "none"; };
+closeNotesBtn.onclick  = () => { notesModal.style.display = "none"; };
 closePreviewIcon.onclick = () => { closePreviewModal(); };
 closePreviewBtn.onclick  = () => { closePreviewModal(); };
 
@@ -832,110 +828,6 @@ const previousCasesBody  = document.getElementById("previousCasesBody");
 const previousCasesCloseIcon = previousCasesModal.querySelector(".close");
 const closePreviousCasesBtn = document.getElementById("closePreviousCasesBtn");
 
-const stackedModalOrder = [];
-const suppressedForNotes = [];
-const STACK_BASE_Z = 2000;
-const STACK_STEP_Z = 80;
-const NOTES_MODAL_TOP = 120000;
-
-function showNotesModal(contentHtml) {
-  modalNotes.innerHTML = contentHtml || '';
-
-  if (!notesModal.dataset.appendedToBody) {
-    document.body.appendChild(notesModal);
-    notesModal.dataset.appendedToBody = 'true';
-  }
-
-  notesModal.classList.add('notes-modal-active');
-  suppressedForNotes.length = 0;
-
-  const snapshot = stackedModalOrder.slice();
-  snapshot.forEach(modal => {
-    if (!modal || modal === notesModal) {
-      return;
-    }
-    suppressedForNotes.push({ modal, viaStack: true });
-    hideStackedModal(modal);
-  });
-
-  document.querySelectorAll('.modal').forEach(modal => {
-    if (!modal || modal === notesModal) {
-      return;
-    }
-    const alreadyTracked = suppressedForNotes.some(entry => entry.modal === modal);
-    if (alreadyTracked) {
-      return;
-    }
-    const computed = window.getComputedStyle ? window.getComputedStyle(modal) : null;
-    const visible = computed ? computed.display !== 'none' : modal.style.display !== 'none';
-    if (!visible) {
-      return;
-    }
-    suppressedForNotes.push({ modal, viaStack: false, previousDisplay: modal.style.display || '' });
-    modal.style.display = 'none';
-  });
-
-  showStackedModal(notesModal);
-  notesModal.style.zIndex = String(NOTES_MODAL_TOP);
-}
-
-function hideNotesModal() {
-  hideStackedModal(notesModal);
-  notesModal.classList.remove('notes-modal-active');
-  modalNotes.innerHTML = '';
-
-  while (suppressedForNotes.length) {
-    const entry = suppressedForNotes.pop();
-    if (!entry || !entry.modal) {
-      continue;
-    }
-    if (entry.viaStack) {
-      showStackedModal(entry.modal);
-    } else {
-      entry.modal.style.display = entry.previousDisplay || '';
-    }
-  }
-}
-
-function syncStackedModalZ() {
-  stackedModalOrder.forEach((modal, index) => {
-    if (!modal) {
-      return;
-    }
-    if (modal === notesModal) {
-      modal.style.zIndex = String(NOTES_MODAL_TOP);
-    } else {
-      modal.style.zIndex = String(STACK_BASE_Z + index * STACK_STEP_Z);
-    }
-  });
-}
-
-function showStackedModal(modal) {
-  if (!modal) return;
-  const existingIndex = stackedModalOrder.indexOf(modal);
-  if (existingIndex !== -1) {
-    stackedModalOrder.splice(existingIndex, 1);
-  }
-  stackedModalOrder.push(modal);
-  modal.style.display = 'block';
-  syncStackedModalZ();
-}
-
-function hideStackedModal(modal) {
-  if (!modal) return;
-  const existingIndex = stackedModalOrder.indexOf(modal);
-  if (existingIndex !== -1) {
-    stackedModalOrder.splice(existingIndex, 1);
-  }
-  modal.style.display = 'none';
-  modal.style.zIndex = '';
-  syncStackedModalZ();
-}
-
-function isStackedModalOpen(modal) {
-  return stackedModalOrder.indexOf(modal) !== -1;
-}
-
 let detailsHistory = [];
 let pendingDetailsFromLists = [];
 let activeDetailsCase = null;
@@ -956,10 +848,7 @@ const attrEscape = (value) => {
     ? ''
     : String(value)
         .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/"/g, '&quot;');
 };
 
 function addRow(label, valueHtml) {
@@ -974,7 +863,8 @@ function addRow(label, valueHtml) {
 }
 
 function closePreviousCasesModal() {
-  hideStackedModal(previousCasesModal);
+  previousCasesModal.style.display = "none";
+  detailsModal.style.zIndex = '';
 
   if (pendingDetailsFromLists.length > 0) {
     const caseToRestore = pendingDetailsFromLists.pop();
@@ -1021,7 +911,7 @@ function openPreviousCasesList(phone, currentCaseNumber) {
   tableHtml += '</tbody></table>';
 
   previousCasesBody.innerHTML = tableHtml;
-  showStackedModal(previousCasesModal);
+  previousCasesModal.style.display = "block";
 
   previousCasesBody.querySelectorAll('.history-view-btn').forEach(link => {
     link.addEventListener('click', () => {
@@ -1039,12 +929,12 @@ function openCaseDetails(caseNumber, options = {}) {
   const pushHistory = options.pushHistory !== false;
   const fromPreviousList = !!options.fromPreviousList;
 
-  if (pushHistory && isStackedModalOpen(detailsModal) && activeDetailsCase && activeDetailsCase !== caseNumber) {
+  if (pushHistory && detailsModal.style.display === 'block' && activeDetailsCase && activeDetailsCase !== caseNumber) {
     detailsHistory.push({
       caseNumber: activeDetailsCase,
       reopenPreviousList: fromPreviousList
     });
-  } else if (pushHistory && !isStackedModalOpen(detailsModal)) {
+  } else if (pushHistory && detailsModal.style.display !== 'block') {
     detailsHistory = [];
   }
 
@@ -1099,7 +989,8 @@ function openCaseDetails(caseNumber, options = {}) {
 
   detailsTableBody.querySelectorAll('.view-notes-btn').forEach(nbtn => {
     nbtn.addEventListener('click', () => {
-      showNotesModal(nbtn.getAttribute('data-notes') || '');
+      modalNotes.innerHTML = nbtn.getAttribute('data-notes') || '';
+      notesModal.style.display = 'block';
     });
   });
 
@@ -1125,7 +1016,14 @@ function openCaseDetails(caseNumber, options = {}) {
     });
   });
 
-  showStackedModal(detailsModal);
+  if (previousCasesModal.style.display === 'block') {
+    const prevZ = parseInt(window.getComputedStyle(previousCasesModal).zIndex || '3100', 10);
+    detailsModal.style.zIndex = prevZ + 10;
+  } else {
+    detailsModal.style.zIndex = '';
+  }
+
+  detailsModal.style.display = 'block';
 }
 
 document.querySelectorAll('.view-details-btn').forEach(btn => {
@@ -1171,14 +1069,18 @@ function hideDetailsModal() {
     const previousContext = detailsHistory.pop();
     if (previousContext && previousContext.reopenPreviousList) {
       pendingDetailsFromLists.push(previousContext.caseNumber);
-      hideStackedModal(detailsModal);
+      detailsModal.style.display = 'none';
+      detailsModal.style.zIndex = '';
       activeDetailsCase = null;
-      showStackedModal(previousCasesModal);
+      if (previousCasesModal.style.display !== 'block') {
+        previousCasesModal.style.display = 'block';
+      }
     } else if (previousContext) {
       openCaseDetails(previousContext.caseNumber, { pushHistory: false });
     }
   } else {
-    hideStackedModal(detailsModal);
+    detailsModal.style.display = 'none';
+    detailsModal.style.zIndex = '';
     activeDetailsCase = null;
   }
 }
@@ -1190,7 +1092,7 @@ closePreviousCasesBtn.onclick  = closePreviousCasesModal;
 
 // Close modals when clicking outside
 window.onclick = e => {
-  if(e.target == notesModal) hideNotesModal();
+  if(e.target == notesModal) notesModal.style.display = "none";
   if(e.target == detailsModal) hideDetailsModal();
   if(e.target == previousCasesModal) closePreviousCasesModal();
   if(e.target == previewModal) closePreviewModal();
@@ -1199,23 +1101,10 @@ window.onclick = e => {
 // ESC to close
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    hideNotesModal();
+    notesModal.style.display = "none";
     hideDetailsModal();
     closePreviousCasesModal();
     closePreviewModal();
-  }
-});
-
-const PREFILLED_PHONE = <?php echo json_encode($phone_number_lookup); ?>;
-const PREFILLED_CASE  = <?php echo json_encode($case_number_lookup); ?>;
-
-document.addEventListener('DOMContentLoaded', () => {
-  if (!PREFILLED_PHONE) {
-    return;
-  }
-  const related = CASES_BY_PHONE[PREFILLED_PHONE];
-  if (Array.isArray(related) && related.length) {
-    openPreviousCasesList(PREFILLED_PHONE, PREFILLED_CASE || '');
   }
 });
 </script>

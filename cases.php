@@ -260,16 +260,8 @@ window.AUDIO_BY_CASE = AUDIO_BY_CASE;
 .header a.active { background: #003f7f; }
 .header a:hover  { background: #003f7f; }
 
-.page-title {
-    text-align: center;
-    color: #0073e6;
-    font-size: 24px;
-    font-weight: 700;
-    margin: 18px auto 12px;
-}
-
 body { font-family: Arial, sans-serif; background: #f7f9fc; padding: 0; margin:0; }
-.container { max-width: 1100px; margin: 0 auto 30px; padding: 14px 16px 30px; }
+.container { max-width: 1100px; margin: 0 auto; padding: 14px 16px 30px; }
 
 /* Top header block: pie LEFT, legend RIGHT */
 .header-block {
@@ -321,9 +313,8 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
 
 /* Modals */
 .modal { display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); z-index: 3000;}
-.modal.modal-notes { z-index: 15000; }
 #detailsModal { z-index: 2000; }
-#notesModal   { z-index: 15000; }
+#notesModal   { z-index: 3000; }
 
 /* --- View Notes modal styling --- */
 .modal-content { background-color: #fff; margin: auto; padding: 20px; border-radius: 10px; width: 80%; max-width: 640px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
@@ -530,9 +521,8 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
   <a href="dashboard.php">📊 Dashboard</a>
 </div>
 
-<div class="page-title">Case List</div>
-
 <div class="container">
+  <h2 style="text-align:center; color:#0073e6; margin-top:6px;">Case List</h2>
 
   <div class="header-block">
     <!-- Pie (LEFT) with period buttons -->
@@ -654,7 +644,7 @@ tbody tr:nth-child(even) { background:#f2f6fb; }
 </div>
 
 <!-- Notes Modal -->
-<div id="notesModal" class="modal modal-notes">
+<div id="notesModal" class="modal">
   <div class="modal-content">
     <span class="close" aria-label="Close notes">&times;</span>
     <h3>Case Notes</h3>
@@ -846,11 +836,12 @@ window.closePreviewModal = closePreviewModal;
 // Bind any main-table notes-button if present (kept for compatibility)
 document.querySelectorAll(".view-notes-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    showNotesModal(btn.getAttribute("data-notes") || '');
+    modalNotes.innerHTML = btn.getAttribute("data-notes") || '';
+    notesModal.style.display = "block";
   });
 });
-closeNotesIcon.onclick = () => { hideNotesModal(); };
-closeNotesBtn.onclick  = () => { hideNotesModal(); };
+closeNotesIcon.onclick = () => { notesModal.style.display = "none"; };
+closeNotesBtn.onclick  = () => { notesModal.style.display = "none"; };
 closePreviewIcon.onclick = () => { closePreviewModal(); };
 closePreviewBtn.onclick  = () => { closePreviewModal(); };
 
@@ -880,110 +871,6 @@ const previousCasesBody  = document.getElementById("previousCasesBody");
 const previousCasesCloseIcon = previousCasesModal.querySelector(".close");
 const closePreviousCasesBtn = document.getElementById("closePreviousCasesBtn");
 
-const stackedModalOrder = [];
-const suppressedForNotes = [];
-const STACK_BASE_Z = 2000;
-const STACK_STEP_Z = 80;
-const NOTES_MODAL_TOP = 120000;
-
-function showNotesModal(contentHtml) {
-  modalNotes.innerHTML = contentHtml || '';
-
-  if (!notesModal.dataset.appendedToBody) {
-    document.body.appendChild(notesModal);
-    notesModal.dataset.appendedToBody = 'true';
-  }
-
-  notesModal.classList.add('notes-modal-active');
-  suppressedForNotes.length = 0;
-
-  const snapshot = stackedModalOrder.slice();
-  snapshot.forEach(modal => {
-    if (!modal || modal === notesModal) {
-      return;
-    }
-    suppressedForNotes.push({ modal, viaStack: true });
-    hideStackedModal(modal);
-  });
-
-  document.querySelectorAll('.modal').forEach(modal => {
-    if (!modal || modal === notesModal) {
-      return;
-    }
-    const alreadyTracked = suppressedForNotes.some(entry => entry.modal === modal);
-    if (alreadyTracked) {
-      return;
-    }
-    const computed = window.getComputedStyle ? window.getComputedStyle(modal) : null;
-    const visible = computed ? computed.display !== 'none' : modal.style.display !== 'none';
-    if (!visible) {
-      return;
-    }
-    suppressedForNotes.push({ modal, viaStack: false, previousDisplay: modal.style.display || '' });
-    modal.style.display = 'none';
-  });
-
-  showStackedModal(notesModal);
-  notesModal.style.zIndex = String(NOTES_MODAL_TOP);
-}
-
-function hideNotesModal() {
-  hideStackedModal(notesModal);
-  notesModal.classList.remove('notes-modal-active');
-  modalNotes.innerHTML = '';
-
-  while (suppressedForNotes.length) {
-    const entry = suppressedForNotes.pop();
-    if (!entry || !entry.modal) {
-      continue;
-    }
-    if (entry.viaStack) {
-      showStackedModal(entry.modal);
-    } else {
-      entry.modal.style.display = entry.previousDisplay || '';
-    }
-  }
-}
-
-function syncStackedModalZ() {
-  stackedModalOrder.forEach((modal, index) => {
-    if (!modal) {
-      return;
-    }
-    if (modal === notesModal) {
-      modal.style.zIndex = String(NOTES_MODAL_TOP);
-    } else {
-      modal.style.zIndex = String(STACK_BASE_Z + index * STACK_STEP_Z);
-    }
-  });
-}
-
-function showStackedModal(modal) {
-  if (!modal) return;
-  const existingIndex = stackedModalOrder.indexOf(modal);
-  if (existingIndex !== -1) {
-    stackedModalOrder.splice(existingIndex, 1);
-  }
-  stackedModalOrder.push(modal);
-  modal.style.display = 'block';
-  syncStackedModalZ();
-}
-
-function hideStackedModal(modal) {
-  if (!modal) return;
-  const existingIndex = stackedModalOrder.indexOf(modal);
-  if (existingIndex !== -1) {
-    stackedModalOrder.splice(existingIndex, 1);
-  }
-  modal.style.display = 'none';
-  modal.style.zIndex = '';
-  syncStackedModalZ();
-}
-
-function isStackedModalOpen(modal) {
-  return stackedModalOrder.indexOf(modal) !== -1;
-}
-
 let detailsHistory = [];
 let pendingDetailsFromLists = [];
 let activeDetailsCase = null;
@@ -1004,10 +891,7 @@ const attrEscape = (value) => {
     ? ''
     : String(value)
         .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/"/g, '&quot;');
 };
 
 function addRow(label, valueHtml) {
@@ -1022,7 +906,8 @@ function addRow(label, valueHtml) {
 }
 
 function closePreviousCasesModal() {
-  hideStackedModal(previousCasesModal);
+  previousCasesModal.style.display = "none";
+  detailsModal.style.zIndex = '';
 
   if (pendingDetailsFromLists.length > 0) {
     const caseToRestore = pendingDetailsFromLists.pop();
@@ -1069,7 +954,7 @@ function openPreviousCasesList(phone, currentCaseNumber) {
   tableHtml += '</tbody></table>';
 
   previousCasesBody.innerHTML = tableHtml;
-  showStackedModal(previousCasesModal);
+  previousCasesModal.style.display = "block";
 
   previousCasesBody.querySelectorAll('.history-view-btn').forEach(link => {
     link.addEventListener('click', () => {
@@ -1087,12 +972,12 @@ function openCaseDetails(caseNumber, options = {}) {
   const pushHistory = options.pushHistory !== false;
   const fromPreviousList = !!options.fromPreviousList;
 
-  if (pushHistory && isStackedModalOpen(detailsModal) && activeDetailsCase && activeDetailsCase !== caseNumber) {
+  if (pushHistory && detailsModal.style.display === 'block' && activeDetailsCase && activeDetailsCase !== caseNumber) {
     detailsHistory.push({
       caseNumber: activeDetailsCase,
       reopenPreviousList: fromPreviousList
     });
-  } else if (pushHistory && !isStackedModalOpen(detailsModal)) {
+  } else if (pushHistory && detailsModal.style.display !== 'block') {
     detailsHistory = [];
   }
 
@@ -1147,7 +1032,8 @@ function openCaseDetails(caseNumber, options = {}) {
 
   detailsTableBody.querySelectorAll('.view-notes-btn').forEach(nbtn => {
     nbtn.addEventListener('click', () => {
-      showNotesModal(nbtn.getAttribute('data-notes') || '');
+      modalNotes.innerHTML = nbtn.getAttribute('data-notes') || '';
+      notesModal.style.display = 'block';
     });
   });
 
@@ -1173,7 +1059,14 @@ function openCaseDetails(caseNumber, options = {}) {
     });
   });
 
-  showStackedModal(detailsModal);
+  if (previousCasesModal.style.display === 'block') {
+    const prevZ = parseInt(window.getComputedStyle(previousCasesModal).zIndex || '3100', 10);
+    detailsModal.style.zIndex = prevZ + 10;
+  } else {
+    detailsModal.style.zIndex = '';
+  }
+
+  detailsModal.style.display = 'block';
 }
 
 document.querySelectorAll('.view-details-btn').forEach(btn => {
@@ -1195,14 +1088,18 @@ function hideDetailsModal() {
     const previousContext = detailsHistory.pop();
     if (previousContext && previousContext.reopenPreviousList) {
       pendingDetailsFromLists.push(previousContext.caseNumber);
-      hideStackedModal(detailsModal);
+      detailsModal.style.display = 'none';
+      detailsModal.style.zIndex = '';
       activeDetailsCase = null;
-      showStackedModal(previousCasesModal);
+      if (previousCasesModal.style.display !== 'block') {
+        previousCasesModal.style.display = 'block';
+      }
     } else if (previousContext) {
       openCaseDetails(previousContext.caseNumber, { pushHistory: false });
     }
   } else {
-    hideStackedModal(detailsModal);
+    detailsModal.style.display = 'none';
+    detailsModal.style.zIndex = '';
     activeDetailsCase = null;
   }
 }
@@ -1214,7 +1111,7 @@ closePreviousCasesBtn.onclick  = closePreviousCasesModal;
 
 // Close modals when clicking outside
 window.onclick = e => {
-  if(e.target == notesModal) hideNotesModal();
+  if(e.target == notesModal) notesModal.style.display = "none";
   if(e.target == detailsModal) hideDetailsModal();
   if(e.target == previousCasesModal) closePreviousCasesModal();
   if(e.target == previewModal) closePreviewModal();
@@ -1223,7 +1120,7 @@ window.onclick = e => {
 // Close modals with ESC key
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    hideNotesModal();
+    notesModal.style.display = "none";
     hideDetailsModal();
     closePreviousCasesModal();
     closePreviewModal();
