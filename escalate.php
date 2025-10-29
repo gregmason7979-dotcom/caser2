@@ -24,18 +24,29 @@ function cleanSessionToken($value) {
   }
 
   $token = preg_replace('/\bSuccess\b/i', '', $token);
-  $token = trim($token);
-
-  if (preg_match('/^[A-Za-z0-9\-]+/', $token, $m)) {
-    return $m[0];
+  $trimCharacters = ' :;|';
+  $token = trim($token, $trimCharacters);
+  if ($token === '') {
+    return '';
   }
 
-  if (preg_match('/[A-Za-z0-9\-]+/', $token, $m)) {
-    return $m[0];
+  if (preg_match_all('/[A-Za-z0-9\-]+/', $token, $matches) && !empty($matches[0])) {
+    $candidates = $matches[0];
+    for ($i = count($candidates) - 1; $i >= 0; $i--) {
+      $candidate = $candidates[$i];
+      if ($candidate !== '' && preg_match('/\d/', $candidate)) {
+        return $candidate;
+      }
+    }
+    $last = end($candidates);
+    if ($last !== false) {
+      return $last;
+    }
   }
 
   return '';
 }
+
 
 // Fetch case (for IVR/labels)
 $sql  = "SELECT TOP 1 * FROM mwcsp_caser WHERE case_number = ?";
